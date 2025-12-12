@@ -1,4 +1,4 @@
-# Prophet v5 🚀🌀⚡
+# Prophet 🚀🌀⚡
 ## The Ultimate AIOps-Powered Multi-Cloud Karpenter GitOps Repository
 
 [![CI - Manifest Validation](https://github.com/prophet-aiops/prophet/actions/workflows/ci-validate.yaml/badge.svg)](https://github.com/prophet-aiops/prophet/actions/workflows/ci-validate.yaml)
