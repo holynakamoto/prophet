@@ -1,0 +1,139 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-ml-forecasting
+  namespace: monitoring
+data:
+  # Grafana ML Forecasting Configuration
+  # These queries and thresholds are used by Grafana ML for predictive analytics
+  forecasting-queries.yaml: |
+    # CPU Forecasting for Karpenter Scaling
+    cpu_forecast:
+      query: |
+        sum(rate(container_cpu_usage_seconds_total{namespace!="kube-system"}[5m])) by (namespace, pod)
+      forecast_horizon: 1h
+      confidence_interval: 0.95
+      alert_threshold: 0.80  # Alert if forecasted CPU > 80% of cluster capacity
+    
+    # Memory Forecasting
+    memory_forecast:
+      query: |
+        sum(container_memory_working_set_bytes{namespace!="kube-system"}) by (namespace, pod)
+      forecast_horizon: 1h
+      confidence_interval: 0.95
+      alert_threshold: 0.85
+    
+    # Node Provisioning Forecast
+    node_provisioning_forecast:
+      query: |
+        sum(kube_pod_status_phase{phase="Pending"}) by (node)
+      forecast_horizon: 30m
+      confidence_interval: 0.90
+      alert_threshold: 5  # Alert if forecasted pending pods > 5
+    
+    # Karpenter Scaling Events Forecast
+    karpenter_scaling_forecast:
+      query: |
+        rate(karpenter_nodes_created_total[5m])
+      forecast_horizon: 15m
+      confidence_interval: 0.95
+      alert_threshold: 10  # Alert if forecasted node creations > 10 in 15min
+    
+    # Error Rate Forecasting
+    error_rate_forecast:
+      query: |
+        sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+      forecast_horizon: 30m
+      confidence_interval: 0.95
+      alert_threshold: 0.01  # Alert if forecasted error rate > 1%
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-ml-outlier-detection
+  namespace: monitoring
+data:
+  outlier-detection-config.yaml: |
+    # Outlier Detection Configuration for Grafana ML
+    outlier_detections:
+      # Pod Memory Outliers
+      pod_memory_outliers:
+        query: |
+          container_memory_working_set_bytes{namespace!="kube-system"}
+        method: "isolation_forest"  # or "dbscan", "lof"
+        sensitivity: 0.7  # 0-1, higher = more sensitive
+        dimensions:
+          - memory_usage
+          - cpu_usage
+          - pod_age
+        alert_on_outlier: true
+      
+      # Node Performance Outliers
+      node_performance_outliers:
+        query: |
+          node_cpu_seconds_total{mode!="idle"}
+        method: "isolation_forest"
+        sensitivity: 0.6
+        dimensions:
+          - cpu_utilization
+          - memory_utilization
+          - network_io
+        alert_on_outlier: true
+      
+      # Latency Outliers
+      latency_outliers:
+        query: |
+          histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service))
+        method: "statistical"  # Z-score based
+        sensitivity: 0.8
+        threshold_sigma: 3  # Alert if > 3 standard deviations
+        alert_on_outlier: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-ml-anomaly-detection
+  namespace: monitoring
+data:
+  anomaly-detection-config.yaml: |
+    # Anomaly Detection Configuration
+    # Dynamic thresholds based on historical patterns
+    anomaly_detections:
+      # CPU Anomaly Detection
+      cpu_anomaly:
+        query: |
+          sum(rate(container_cpu_usage_seconds_total[5m])) by (namespace, pod)
+        method: "prophet"  # or "arima", "lstm"
+        training_window: 7d
+        detection_window: 1h
+        seasonality: "daily"
+        alert_on_anomaly: true
+      
+      # Memory Leak Detection
+      memory_leak_anomaly:
+        query: |
+          sum(container_memory_working_set_bytes) by (namespace, pod)
+        method: "prophet"
+        training_window: 3d
+        detection_window: 30m
+        trend_detection: true  # Detect upward trends
+        alert_on_anomaly: true
+      
+      # Request Rate Anomaly
+      request_rate_anomaly:
+        query: |
+          sum(rate(http_requests_total[5m])) by (service)
+        method: "statistical"
+        baseline_window: 24h
+        detection_sensitivity: 0.8
+        alert_on_anomaly: true
+      
+      # Karpenter Provisioning Anomaly
+      karpenter_anomaly:
+        query: |
+          rate(karpenter_nodes_created_total[5m])
+        method: "prophet"
+        training_window: 14d
+        detection_window: 15m
+        alert_on_anomaly: true
+

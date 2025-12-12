@@ -1,0 +1,94 @@
+# k9s configuration file
+k9s:
+  # Refresh rate in seconds
+  refreshRate: 2
+  # Maximum number of connections to keep alive
+  maxConnRetry: 5
+  # Enable read-only mode
+  readOnly: false
+  # No exit on errors
+  noExitOnError: false
+  # UI settings
+  ui:
+    enableMouse: true
+    headless: false
+    logoless: false
+    crumbsless: false
+    reactive: false
+    noIcons: false
+  # Skip latest version check
+  skipLatestRevCheck: false
+  # Disable pod probing
+  disablePodCounting: false
+  # Shell pod image
+  shellPod:
+    image: busybox:1.35.0
+    namespace: default
+    limits:
+      cpu: 100m
+      memory: 100Mi
+  # Image scanners
+  imageScans:
+    enable: false
+    exclusions:
+      namespaces: []
+      labels: []
+  # Log settings
+  logger:
+    tail: 100
+    buffer: 5000
+    sinceSeconds: -1
+    fullScreen: false
+    textWrap: false
+    showTime: false
+  # Thresholds for resource warnings
+  thresholds:
+    cpu:
+      critical: 90
+      warn: 70
+    memory:
+      critical: 90
+      warn: 80
+  # View settings
+  views:
+    v1/pods:
+      columns:
+        - NAME
+        - NAMESPACE
+        - STATUS
+        - AGE
+        - CPU(cores)
+        - MEMORY(bytes)
+        - NODE
+    apps/v1/deployments:
+      columns:
+        - NAME
+        - NAMESPACE
+        - READY
+        - UP-TO-DATE
+        - AVAILABLE
+        - AGE
+    apps/v1/daemonsets:
+      columns:
+        - NAME
+        - NAMESPACE
+        - DESIRED
+        - CURRENT
+        - READY
+        - UP-TO-DATE
+        - AVAILABLE
+        - AGE
+    karpenter.sh/v1beta1/nodepools:
+      columns:
+        - NAME
+        - LIMITS
+        - DISRUPTION
+        - AGE
+    karpenter.sh/v1beta1/nodes:
+      columns:
+        - NAME
+        - INSTANCE-TYPE
+        - ZONE
+        - READY
+        - AGE
+

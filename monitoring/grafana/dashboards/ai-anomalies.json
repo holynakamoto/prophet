@@ -1,0 +1,208 @@
+{
+  "dashboard": {
+    "title": "AIOps: Anomalies & Predictions",
+    "tags": ["aiops", "ml", "anomalies", "forecasting", "karpenter"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "CPU Usage Forecast (Grafana ML)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "sum(rate(container_cpu_usage_seconds_total{namespace!=\"kube-system\"}[5m]))",
+            "legendFormat": "Current CPU",
+            "refId": "A"
+          },
+          {
+            "expr": "ml_forecast(sum(rate(container_cpu_usage_seconds_total{namespace!=\"kube-system\"}[5m])), 1h)",
+            "legendFormat": "Forecasted CPU (1h)",
+            "refId": "B"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "custom": {
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "pointSize": 5
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Forecasted CPU"},
+              "properties": [
+                {"id": "custom.lineStyle", "value": {"dash": [10, 10]}},
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "title": "Memory Outlier Detection",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "ml_outlier_detection(container_memory_working_set_bytes{namespace!=\"kube-system\"})",
+            "legendFormat": "Outlier Score: {{pod}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 0.7, "color": "yellow"},
+                {"value": 0.9, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Karpenter Node Provisioning Forecast",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(karpenter_nodes_created_total[5m])",
+            "legendFormat": "Current Creation Rate",
+            "refId": "A"
+          },
+          {
+            "expr": "ml_forecast(rate(karpenter_nodes_created_total[5m]), 15m)",
+            "legendFormat": "Forecasted (15m)",
+            "refId": "B"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": {
+              "drawStyle": "line"
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Anomaly Detection: Request Rate",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total[5m])) by (service)",
+            "legendFormat": "{{service}}",
+            "refId": "A"
+          },
+          {
+            "expr": "ml_anomaly_detection(sum(rate(http_requests_total[5m])) by (service))",
+            "legendFormat": "Anomaly: {{service}}",
+            "refId": "B"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps"
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byRegexp", "options": "/Anomaly/"},
+              "properties": [
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}},
+                {"id": "custom.lineStyle", "value": {"dash": [5, 5]}}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 5,
+        "title": "Memory Leak Detection (Trend Analysis)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "ml_trend_detection(sum(container_memory_working_set_bytes) by (namespace, pod))",
+            "legendFormat": "Trend: {{pod}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 0.5, "color": "yellow"},
+                {"value": 0.8, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Pod Latency Outliers",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "ml_outlier_detection(histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, pod)))",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "custom": {
+              "displayMode": "color-background"
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "K8sGPT Analysis Results",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{app=\"k8sgpt-operator\"}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24}
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "name": "Anomaly Detected",
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "ml_anomaly_detection(sum(rate(http_requests_total[5m]))) > 0.8"
+        },
+        {
+          "name": "Forecast Alert",
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "ml_forecast(sum(rate(container_cpu_usage_seconds_total[5m])), 1h) > 0.8"
+        }
+      ]
+    }
+  }
+}
+

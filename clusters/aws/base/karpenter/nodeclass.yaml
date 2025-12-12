@@ -1,0 +1,33 @@
+apiVersion: karpenter.k8s.aws/v1beta1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  # AMI Family for EKS
+  amiFamily: AL2
+  # Subnet and security group selectors
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: ${CLUSTER_NAME}
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: ${CLUSTER_NAME}
+  # Instance store policy
+  instanceStorePolicy: NVME
+  # User data for node initialization
+  userData: |
+    #!/bin/bash
+    /etc/eks/bootstrap.sh ${CLUSTER_NAME}
+  # Block device mappings
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 100Gi
+        volumeType: gp3
+        iops: 3000
+        deleteOnTermination: true
+  # Tags applied to instances
+  tags:
+    Environment: ${ENVIRONMENT}
+    ManagedBy: Karpenter
+

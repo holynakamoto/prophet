@@ -1,0 +1,12 @@
+apiVersion: karpenter.gcp.upbound.io/v1alpha1
+kind: GKENodeClass
+metadata:
+  name: default
+spec:
+  diskSize: 200Gi
+  diskType: pd-ssd
+  labels:
+    Environment: production
+    CostCenter: operations
+    Backup: required
+

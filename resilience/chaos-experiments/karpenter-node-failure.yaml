@@ -1,0 +1,64 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NodeChaos
+metadata:
+  name: karpenter-node-failure
+  namespace: chaos-mesh
+  labels:
+    experiment-type: node-failure
+    ai-validated: "true"
+    karpenter: "true"
+spec:
+  action: node-restart
+  mode: one
+  selector:
+    labelSelectors:
+      karpenter.sh/nodepool: default
+  duration: "10m"
+  scheduler:
+    cron: "@every 48h"
+---
+# AI-Powered Karpenter Recovery Analysis
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ai-validate-karpenter-recovery
+  namespace: chaos-mesh
+spec:
+  template:
+    spec:
+      serviceAccountName: k8sgpt-operator
+      containers:
+        - name: ai-karpenter-validator
+          image: curlimages/curl:latest
+          command:
+            - sh
+            - -c
+            - |
+              echo "Analyzing Karpenter node failure recovery..."
+              
+              # Wait for experiment
+              sleep 600
+              
+              # 1. Check Karpenter provisioning forecast
+              FORECAST=$(curl -s "http://grafana.monitoring.svc.cluster.local:3000/api/datasources/proxy/1/api/v1/query?query=ml_forecast(rate(karpenter_nodes_created_total[5m]), 15m)" | jq -r '.data.result[0].value[1]')
+              echo "Forecasted node creation rate: $FORECAST"
+              
+              # 2. K8sGPT analysis of Karpenter state
+              kubectl exec -n k8sgpt deployment/k8sgpt-operator -- \
+                k8sgpt analyze --filter KarpenterNodePool,KarpenterNodeClass --output json > /tmp/karpenter-analysis.json
+              
+              # 3. Check for pending pods (should be zero if Karpenter recovered)
+              PENDING=$(kubectl get pods --all-namespaces --field-selector=status.phase=Pending --no-headers | wc -l)
+              echo "Pending pods: $PENDING"
+              
+              # 4. Node provisioning time analysis
+              PROVISION_TIME=$(curl -s "http://grafana.monitoring.svc.cluster.local:3000/api/datasources/proxy/1/api/v1/query?query=histogram_quantile(0.95, sum(rate(karpenter_node_claims_created_seconds_bucket[5m])) by (le))" | jq -r '.data.result[0].value[1]')
+              echo "95th percentile provisioning time: ${PROVISION_TIME}s"
+              
+              if [ "$PENDING" -eq 0 ] && [ "$(echo "$PROVISION_TIME < 60" | bc)" -eq 1 ]; then
+                echo "✅ Karpenter recovery validated: All pods scheduled, fast provisioning"
+              else
+                echo "⚠️ Karpenter recovery issues detected - review analysis"
+              fi
+          restartPolicy: OnFailure
+

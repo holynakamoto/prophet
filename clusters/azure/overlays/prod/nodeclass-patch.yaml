@@ -1,0 +1,12 @@
+apiVersion: karpenter.azure.com/v1alpha2
+kind: AKSNodeClass
+metadata:
+  name: default
+spec:
+  osDiskSizeGB: 200
+  osDiskType: Premium_LRS
+  tags:
+    Environment: production
+    CostCenter: operations
+    Backup: required
+

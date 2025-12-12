@@ -1,0 +1,84 @@
+{
+  "dashboard": {
+    "title": "Kubernetes Cluster Nodes",
+    "tags": ["kubernetes", "nodes", "karpenter"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Node CPU Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "yaxes": [
+          {"format": "percent", "label": "CPU Usage %", "max": 100, "min": 0}
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Node Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "yaxes": [
+          {"format": "percent", "label": "Memory Usage %", "max": 100, "min": 0}
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Karpenter Nodes Created",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "increase(karpenter_nodes_created_total[5m])",
+            "legendFormat": "Nodes Created",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Karpenter Nodes Terminated",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "increase(karpenter_nodes_terminated_total[5m])",
+            "legendFormat": "Nodes Terminated",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Node Count by Instance Type",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "count by (node) (kube_node_info)",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+      }
+    ]
+  }
+}
+

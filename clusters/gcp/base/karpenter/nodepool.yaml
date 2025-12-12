@@ -1,0 +1,42 @@
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  template:
+    metadata:
+      labels:
+        workload-type: general
+    spec:
+      nodeClassRef:
+        # Adjust API version and kind based on actual GCP provider
+        apiVersion: karpenter.gcp.upbound.io/v1alpha1
+        kind: GKENodeClass
+        name: default
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values:
+            - e2-medium
+            - e2-standard-2
+            - e2-standard-4
+            - n1-standard-2
+            - n1-standard-4
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["regular", "spot"]
+  disruption:
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: 30s
+    expireAfter: 720h
+  limits:
+    cpu: 1000
+    memory: 1000Gi
+  weight: 10
+

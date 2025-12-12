@@ -1,0 +1,10 @@
+apiVersion: karpenter.gcp.upbound.io/v1alpha1
+kind: GKENodeClass
+metadata:
+  name: default
+spec:
+  diskSize: 50Gi
+  labels:
+    Environment: staging
+    CostCenter: development
+

@@ -1,0 +1,186 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: monitoring
+data:
+  config.alloy: |
+    // Grafana Alloy Configuration
+    // OpenTelemetry Collector replacement with native Grafana stack integration
+    // Feeds metrics, logs, and traces to Grafana Cloud or self-hosted stack
+    
+    // Prometheus Remote Write (to Mimir or Grafana Cloud)
+    prometheus.remote_write "grafana_cloud" {
+      endpoint {
+        url = "http://mimir.monitoring.svc.cluster.local:9009/api/v1/push"
+      }
+    }
+    
+    // Loki Push API (for logs)
+    loki.write "loki" {
+      endpoint {
+        url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+      }
+    }
+    
+    // Tempo Push API (for traces)
+    tempo.write "tempo" {
+      endpoint {
+        url = "http://tempo.monitoring.svc.cluster.local:3200"
+      }
+    }
+    
+    // Kubernetes Discovery
+    discovery.kubernetes "k8s" {
+      role = "pod"
+    }
+    
+    // Prometheus Scraping
+    prometheus.scrape "k8s_pods" {
+      targets    = discovery.kubernetes.k8s.targets
+      forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+      
+      scrape_interval = "15s"
+      scrape_timeout  = "10s"
+      
+      relabel "add_otel_labels" {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+        regex        = "true"
+        action       = "keep"
+      }
+    }
+    
+    // Karpenter Metrics
+    prometheus.scrape "karpenter" {
+      targets = [
+        {
+          __address__ = "karpenter.karpenter.svc.cluster.local:8080/metrics",
+        },
+      ]
+      forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+    }
+    
+    // OpenTelemetry Receiver
+    otelcol.receiver.otlp "default" {
+      grpc {
+        endpoint = "0.0.0.0:4317"
+      }
+      http {
+        endpoint = "0.0.0.0:4318"
+      }
+      
+      output {
+        metrics = [otelcol.processor.batch.default.input]
+        logs    = [otelcol.processor.batch.default.input]
+        traces  = [otelcol.processor.batch.default.input]
+      }
+    }
+    
+    // Batch Processor
+    otelcol.processor.batch "default" {
+      output {
+        metrics = [prometheus.remote_write.grafana_cloud]
+        logs    = [loki.write.loki]
+        traces  = [tempo.write.tempo]
+      }
+    }
+    
+    // Log Collection
+    loki.source.kubernetes "k8s_logs" {
+      targets    = discovery.kubernetes.k8s.targets
+      forward_to = [loki.write.loki]
+    }
+    
+    // Metrics for ML
+    // Enhanced metrics specifically for Grafana ML forecasting
+    prometheus.scrape "ml_metrics" {
+      targets = [
+        {
+          __address__ = "prometheus.monitoring.svc.cluster.local:9090",
+          __metrics_path__ = "/api/v1/query",
+          __param_query = "sum(rate(container_cpu_usage_seconds_total[5m]))",
+        },
+      ]
+      forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+      scrape_interval = "30s"
+    }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alloy
+  namespace: monitoring
+  labels:
+    app: alloy
+spec:
+  selector:
+    matchLabels:
+      app: alloy
+  template:
+    metadata:
+      labels:
+        app: alloy
+    spec:
+      serviceAccountName: alloy
+      containers:
+        - name: alloy
+          image: grafana/alloy:latest
+          args:
+            - run
+            - --server.http.listen-addr=0.0.0.0:12345
+            - --storage.path=/var/lib/alloy/data
+            - /etc/alloy/config.alloy
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+            - name: data
+              mountPath: /var/lib/alloy/data
+          ports:
+            - containerPort: 12345
+              name: http
+            - containerPort: 4317
+              name: otlp-grpc
+            - containerPort: 4318
+              name: otlp-http
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+      volumes:
+        - name: config
+          configMap:
+            name: alloy-config
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alloy
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: alloy
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/proxy", "services", "endpoints", "pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: alloy
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: alloy
+subjects:
+  - kind: ServiceAccount
+    name: alloy
+    namespace: monitoring
+

@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-k8s-server-config
+  namespace: default
+data:
+  # Model Context Protocol (MCP) Server Configuration
+  # Enables AI agents to interact with Kubernetes via standardized protocol
+  # Compatible with Claude Desktop, Cursor, and other MCP clients
+  mcp-config.json: |
+    {
+      "mcpServers": {
+        "kubernetes": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-kubernetes"
+          ],
+          "env": {
+            "KUBECONFIG": "/path/to/kubeconfig"
+          }
+        }
+      }
+    }
+  
+  # MCP Server for Kubernetes
+  # Provides AI agents with:
+  # - Live cluster state queries
+  # - Resource descriptions
+  # - Event analysis
+  # - Log aggregation
+  # - Metrics access
+  #
+  # Usage in AI agents (Claude, GPT-4, etc.):
+  # "Check the health of all nodes in my cluster"
+  # "Analyze why pods are pending"
+  # "What's the current CPU utilization across namespaces?"
+  # "Explain the Karpenter node provisioning status"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-k8s-server
+  namespace: default
+  labels:
+    app: mcp-k8s-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-k8s-server
+  template:
+    metadata:
+      labels:
+        app: mcp-k8s-server
+    spec:
+      serviceAccountName: mcp-k8s-server
+      containers:
+        - name: mcp-server
+          image: node:20-alpine
+          command:
+            - sh
+            - -c
+            - |
+              npm install -g @modelcontextprotocol/server-kubernetes
+              mcp-server-kubernetes
+          env:
+            - name: KUBECONFIG
+              value: "/var/run/secrets/kubernetes.io/serviceaccount"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-k8s-server
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mcp-k8s-server
+rules:
+  - apiGroups: [""]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["karpenter.sh"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mcp-k8s-server
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mcp-k8s-server
+subjects:
+  - kind: ServiceAccount
+    name: mcp-k8s-server
+    namespace: default
+

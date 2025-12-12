@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubectl-ai-config
+  namespace: default
+data:
+  # kubectl-ai Configuration
+  # Natural language kubectl interactions via AI
+  config.yaml: |
+    provider: openai  # or "azureopenai", "anthropic", "localai"
+    model: gpt-4o-mini
+    temperature: 0.3
+    max_tokens: 2000
+    
+    # Safety settings
+    safety:
+      require_confirmation: true  # Always confirm before applying
+      dry_run_by_default: true   # Default to --dry-run
+      allowed_verbs:
+        - get
+        - describe
+        - logs
+        - explain
+      restricted_verbs:
+        - delete
+        - patch
+        - apply
+    
+    # Context awareness
+    context:
+      include_cluster_info: true
+      include_node_info: true
+      include_pod_info: true
+      include_karpenter_info: true
+    
+    # Example usage:
+    # kubectl ai "Why is my backend pod crashing?"
+    # kubectl ai "Show me all pods with high memory usage"
+    # kubectl ai "Explain why Karpenter isn't provisioning nodes"
+---
+# Installation instructions for kubectl-ai
+# Install via: kubectl krew install ai
+# Or: https://github.com/sozercan/kubectl-ai
+

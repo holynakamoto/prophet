@@ -1,0 +1,115 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: pod-failure-experiment
+  namespace: chaos-mesh
+  labels:
+    experiment-type: pod-failure
+    ai-validated: "true"
+spec:
+  action: pod-failure
+  mode: one
+  selector:
+    namespaces:
+      - default
+    labelSelectors:
+      app: backend
+  duration: "5m"
+  scheduler:
+    cron: "@every 24h"
+---
+# AI Validation Hook
+# After chaos experiment, K8sGPT analyzes recovery
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ai-validate-pod-failure
+  namespace: chaos-mesh
+  labels:
+    aiops: "true"
+spec:
+  template:
+    spec:
+      serviceAccountName: k8sgpt-operator
+      containers:
+        - name: ai-validator
+          image: curlimages/curl:latest
+          command:
+            - sh
+            - -c
+            - |
+              # Wait for experiment to complete
+              sleep 300
+              
+              # Trigger K8sGPT analysis
+              curl -X POST http://k8sgpt-operator.k8sgpt.svc.cluster.local:8080/api/v1/analyze \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "resourceType": "Pod",
+                  "namespace": "default",
+                  "filters": ["CrashLoopBackOff", "Pending", "Error"]
+                }'
+              
+              # Check Grafana ML for anomalies
+              curl -X GET "http://grafana.monitoring.svc.cluster.local:3000/api/datasources/proxy/1/api/v1/query?query=ml_anomaly_detection(sum(rate(container_cpu_usage_seconds_total[5m])))"
+              
+              echo "AI validation complete"
+          restartPolicy: OnFailure
+---
+# Post-Chaos Analysis Dashboard Annotation
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chaos-ai-analysis
+  namespace: chaos-mesh
+data:
+  analysis-script.sh: |
+    #!/bin/bash
+    # Post-chaos AI analysis script
+    # Analyzes recovery patterns, identifies issues, and generates report
+    
+    EXPERIMENT_NAME=$1
+    NAMESPACE=${2:-default}
+    
+    echo "Running AI analysis for experiment: $EXPERIMENT_NAME"
+    
+    # 1. K8sGPT Analysis
+    echo "Running K8sGPT diagnostics..."
+    kubectl exec -n k8sgpt deployment/k8sgpt-operator -- \
+      k8sgpt analyze --namespace $NAMESPACE --output json > /tmp/k8sgpt-analysis.json
+    
+    # 2. Grafana ML Anomaly Check
+    echo "Checking for anomalies via Grafana ML..."
+    ANOMALIES=$(curl -s "http://grafana.monitoring.svc.cluster.local:3000/api/datasources/proxy/1/api/v1/query?query=ml_anomaly_detection(sum(rate(container_cpu_usage_seconds_total[5m])))" | jq '.data.result | length')
+    
+    if [ "$ANOMALIES" -gt 0 ]; then
+      echo "WARNING: $ANOMALIES anomalies detected post-chaos"
+    else
+      echo "SUCCESS: No anomalies detected - system recovered normally"
+    fi
+    
+    # 3. Recovery Time Analysis
+    RECOVERY_TIME=$(curl -s "http://grafana.monitoring.svc.cluster.local:3000/api/datasources/proxy/1/api/v1/query?query=time() - kube_pod_status_phase{phase=\"Running\"}[5m]" | jq -r '.data.result[0].value[1]')
+    echo "Recovery time: ${RECOVERY_TIME}s"
+    
+    # 4. Generate Report
+    cat > /tmp/chaos-ai-report.md <<EOF
+    # Chaos Experiment AI Analysis Report
+    
+    **Experiment**: $EXPERIMENT_NAME
+    **Namespace**: $NAMESPACE
+    **Analysis Time**: $(date)
+    
+    ## K8sGPT Findings
+    $(cat /tmp/k8sgpt-analysis.json | jq -r '.issues[] | "### \(.name)\n- Severity: \(.severity)\n- Explanation: \(.explanation)\n- Suggestion: \(.suggestion)"')
+    
+    ## Anomaly Detection
+    - Anomalies Detected: $ANOMALIES
+    - Recovery Time: ${RECOVERY_TIME}s
+    
+    ## Conclusion
+    $(if [ "$ANOMALIES" -eq 0 ]; then echo "✅ System demonstrated resilience - no anomalies detected"; else echo "⚠️ System showed anomalies - review K8sGPT findings"; fi)
+    EOF
+    
+    cat /tmp/chaos-ai-report.md
+

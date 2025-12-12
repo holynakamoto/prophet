@@ -1,0 +1,23 @@
+apiVersion: karpenter.gcp.upbound.io/v1alpha1
+kind: GKENodeClass
+metadata:
+  name: default
+spec:
+  # GCP-specific node class configuration
+  # Note: Karpenter GCP provider uses different resource names
+  # This is a template - adjust based on actual GCP provider CRDs
+  projectID: ${GCP_PROJECT_ID}
+  region: ${GCP_REGION}
+  zone: ${GCP_ZONE}
+  diskType: pd-ssd
+  diskSize: 100Gi
+  machineType: e2-medium
+  imageType: COS_CONTAINERD
+  serviceAccount: ${GCP_SERVICE_ACCOUNT}
+  tags:
+    - karpenter
+    - ${CLUSTER_NAME}
+  labels:
+    Environment: ${ENVIRONMENT}
+    ManagedBy: Karpenter
+

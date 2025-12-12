@@ -1,0 +1,29 @@
+# Kubernetes
+*.kubeconfig
+*.pem
+*.key
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+.env
+.env.local
+
+# Helm
+charts/*.tgz
+.helm/
+
+# ArgoCD
+*.argocd-secret.yaml
+

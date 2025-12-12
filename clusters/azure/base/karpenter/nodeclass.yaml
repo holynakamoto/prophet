@@ -1,0 +1,19 @@
+apiVersion: karpenter.azure.com/v1alpha2
+kind: AKSNodeClass
+metadata:
+  name: default
+spec:
+  # Azure-specific node class configuration
+  # Note: Karpenter Azure provider uses AKSNodeClass
+  # Adjust based on actual Azure provider CRDs
+  resourceGroup: ${AZURE_RESOURCE_GROUP}
+  location: ${AZURE_LOCATION}
+  vmSize: Standard_D2s_v3
+  osDiskType: Managed
+  osDiskSizeGB: 100
+  imageType: Linux
+  tags:
+    Environment: ${ENVIRONMENT}
+    ManagedBy: Karpenter
+    ClusterName: ${CLUSTER_NAME}
+

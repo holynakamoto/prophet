@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - karpenter/nodeclass.yaml
+  - karpenter/nodepool.yaml
+  - karpenter/settings.yaml
+  - ingress/nginx.yaml
+
+commonLabels:
+  managed-by: kustomize
+  cloud-provider: gcp
+

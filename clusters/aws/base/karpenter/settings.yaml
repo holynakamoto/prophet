@@ -1,0 +1,10 @@
+apiVersion: settings.karpenter.sh/v1alpha1
+kind: ClusterSettings
+metadata:
+  name: default
+spec:
+  # Global settings for Karpenter
+  # These are applied cluster-wide
+  # Note: Some settings may be configured via Karpenter controller flags
+  # This manifest serves as documentation and for any CRD-based settings
+

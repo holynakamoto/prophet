@@ -1,0 +1,22 @@
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  limits:
+    cpu: 500
+    memory: 500Gi
+  template:
+    spec:
+      requirements:
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values:
+            - t3.medium
+            - t3.large
+            - m5.large
+            - m5.xlarge
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot"]  # Prefer spot for staging
+

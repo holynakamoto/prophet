@@ -1,0 +1,8 @@
+apiVersion: settings.karpenter.sh/v1alpha1
+kind: ClusterSettings
+metadata:
+  name: default
+spec:
+  # Global settings for Karpenter on GCP
+  # Adjust based on GCP provider capabilities
+

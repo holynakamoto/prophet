@@ -1,0 +1,10 @@
+apiVersion: karpenter.azure.com/v1alpha2
+kind: AKSNodeClass
+metadata:
+  name: default
+spec:
+  osDiskSizeGB: 50
+  tags:
+    Environment: staging
+    CostCenter: development
+

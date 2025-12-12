@@ -1,0 +1,28 @@
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  limits:
+    cpu: 2000
+    memory: 2000Gi
+  template:
+    spec:
+      requirements:
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values:
+            - e2-standard-2
+            - e2-standard-4
+            - e2-standard-8
+            - n1-standard-2
+            - n1-standard-4
+            - n1-standard-8
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["regular", "spot"]
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    consolidateAfter: 5m
+    expireAfter: 720h
+
