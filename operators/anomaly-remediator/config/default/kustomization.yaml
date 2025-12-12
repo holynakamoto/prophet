@@ -1,0 +1,7 @@
+resources:
+- ../crd
+- ../rbac
+- ../manager
+
+namespace: prophet-operators
+

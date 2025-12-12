@@ -1,0 +1,9 @@
+# Tilt ignore patterns
+.git/
+bin/
+cover.out
+*.test
+vendor/
+node_modules/
+zz_generated.deepcopy.go
+

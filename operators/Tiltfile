@@ -1,0 +1,81 @@
+# Tiltfile for Prophet Operators - Live Development
+# Run with: tilt up
+# Access UI at: http://localhost:10350
+
+# Configuration
+OPERATOR_NAME = 'anomaly-remediator'  # Change this or use Tilt args
+IMAGE_NAME = 'ghcr.io/prophet-aiops/prophet-' + OPERATOR_NAME
+IMAGE_TAG = 'dev'
+
+# Allow operator selection via Tilt args
+if ARGV.get('operator'):
+    OPERATOR_NAME = ARGV.get('operator')
+    IMAGE_NAME = 'ghcr.io/prophet-aiops/prophet-' + OPERATOR_NAME
+
+OPERATOR_DIR = 'operators/' + OPERATOR_NAME
+
+# Build operator image with live update support
+docker_build(
+    IMAGE_NAME + ':' + IMAGE_TAG,
+    OPERATOR_DIR,
+    dockerfile=OPERATOR_DIR + '/Dockerfile',
+    live_update=[
+        # Hot reload: sync compiled binary directly
+        sync(OPERATOR_DIR + '/bin/manager', '/manager'),
+        # Fallback: rebuild on source changes
+        fall_back_on([
+            OPERATOR_DIR + '/go.mod',
+            OPERATOR_DIR + '/go.sum',
+            OPERATOR_DIR + '/api/',
+            OPERATOR_DIR + '/controllers/',
+            OPERATOR_DIR + '/cmd/',
+        ]),
+    ],
+    ignore=[
+        OPERATOR_DIR + '/bin/',
+        OPERATOR_DIR + '/.git/',
+        OPERATOR_DIR + '/cover.out',
+    ]
+)
+
+# Deploy CRDs first
+k8s_yaml(kustomize(OPERATOR_DIR + '/config/crd'))
+
+# Deploy operator with updated image
+k8s_yaml(kustomize(OPERATOR_DIR + '/config/default'))
+
+# Update image in kustomization
+k8s_resource(
+    OPERATOR_NAME + '-controller-manager',
+    image=IMAGE_NAME + ':' + IMAGE_TAG,
+    port_forwards='8080:8080',  # Metrics port
+    resource_deps=['docker_build'],
+)
+
+# Port-forward for debugging
+k8s_resource(
+    OPERATOR_NAME + '-controller-manager',
+    port_forwards=[
+        '8080:8080',  # Metrics
+        '8081:8081',  # Health/readiness
+    ],
+)
+
+# Local resource to apply test CRs
+local_resource(
+    'apply-test-cr',
+    cmd='kubectl apply -f ' + OPERATOR_DIR + '/config/samples/ 2>/dev/null || echo "No test CRs found"',
+    deps=[OPERATOR_DIR + '/config/samples/'],
+    allow_parallel=True,
+)
+
+# Watch for changes
+watch_file(OPERATOR_DIR + '/api/')
+watch_file(OPERATOR_DIR + '/controllers/')
+watch_file(OPERATOR_DIR + '/cmd/')
+
+# Print helpful info
+print('🚀 Tilt is running for operator: ' + OPERATOR_NAME)
+print('📊 UI: http://localhost:10350')
+print('🔧 Change operator: tilt args --operator=<name>')
+

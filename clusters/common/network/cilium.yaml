@@ -1,0 +1,229 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cilium
+---
+# Cilium CNI Installation
+# Note: This is a placeholder manifest. In production, install Cilium via Helm:
+# helm repo add cilium https://helm.cilium.io/
+# helm install cilium cilium/cilium --namespace cilium-system --set hubble.enabled=true
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-config
+  namespace: cilium
+data:
+  enable-hubble: "true"
+  enable-hubble-metrics: "true"
+  hubble-listen-address: ":4244"
+  hubble-metrics-server: ":9965"
+  hubble-relay-enabled: "true"
+  enable-ipv4: "true"
+  enable-ipv6: "false"
+  enable-bpf-masquerade: "true"
+  enable-remote-node-identity: "true"
+  enable-endpoint-health-checking: "true"
+  enable-well-known-identities: "false"
+  enable-identity-mark: "true"
+  enable-bandwidth-manager: "true"
+  enable-bpf-clock-probe: "true"
+  enable-local-redirect-policy: "true"
+  enable-session-affinity: "true"
+  kube-proxy-replacement: "strict"
+  enable-hubble-tls-transport: "true"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cilium
+  namespace: cilium
+  labels:
+    app: cilium
+spec:
+  selector:
+    matchLabels:
+      app: cilium
+  template:
+    metadata:
+      labels:
+        app: cilium
+    spec:
+      hostNetwork: true
+      containers:
+      - name: cilium-agent
+        image: quay.io/cilium/cilium:v1.14.5
+        imagePullPolicy: IfNotPresent
+        command:
+        - cilium-agent
+        env:
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: CILIUM_K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KUBERNETES_SERVICE_HOST
+          value: "kubernetes.default.svc"
+        - name: KUBERNETES_SERVICE_PORT
+          value: "443"
+        volumeMounts:
+        - name: bpf-maps
+          mountPath: /sys/fs/bpf
+        - name: cni-path
+          mountPath: /host/opt/cni/bin
+        - name: etc-cni-netd
+          mountPath: /host/etc/cni/net.d
+        - name: clustermesh-secrets
+          mountPath: /var/lib/cilium/clustermesh
+        - name: lib-modules
+          mountPath: /lib/modules
+          readOnly: true
+        - name: xtables-lock
+          mountPath: /run/xtables.lock
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+      volumes:
+      - name: bpf-maps
+        hostPath:
+          path: /sys/fs/bpf
+          type: DirectoryOrCreate
+      - name: cni-path
+        hostPath:
+          path: /opt/cni/bin
+          type: DirectoryOrCreate
+      - name: etc-cni-netd
+        hostPath:
+          path: /etc/cni/net.d
+          type: DirectoryOrCreate
+      - name: clustermesh-secrets
+        secret:
+          secretName: clustermesh-secrets
+          optional: true
+      - name: lib-modules
+        hostPath:
+          path: /lib/modules
+      - name: xtables-lock
+        hostPath:
+          path: /run/xtables.lock
+          type: FileOrCreate
+      tolerations:
+      - operator: Exists
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hubble-relay
+  namespace: cilium
+  labels:
+    app: hubble-relay
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hubble-relay
+  template:
+    metadata:
+      labels:
+        app: hubble-relay
+    spec:
+      containers:
+      - name: hubble-relay
+        image: quay.io/cilium/hubble-relay:v1.14.5
+        imagePullPolicy: IfNotPresent
+        command:
+        - hubble-relay
+        - --server
+        - --listen-address=:4245
+        env:
+        - name: CILIUM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        ports:
+        - name: grpc
+          containerPort: 4245
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hubble-relay
+  namespace: cilium
+  labels:
+    app: hubble-relay
+spec:
+  type: ClusterIP
+  ports:
+  - port: 4245
+    targetPort: 4245
+    name: grpc
+  selector:
+    app: hubble-relay
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hubble-ui
+  namespace: cilium
+  labels:
+    app: hubble-ui
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8081
+    name: http
+  selector:
+    app: hubble-ui
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hubble-ui
+  namespace: cilium
+  labels:
+    app: hubble-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hubble-ui
+  template:
+    metadata:
+      labels:
+        app: hubble-ui
+    spec:
+      containers:
+      - name: hubble-ui
+        image: quay.io/cilium/hubble-ui:v0.12.0
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: EVENTS_SERVER_PORT
+          value: "8090"
+        - name: FLOWS_API_ADDR
+          value: "hubble-relay:4245"
+        ports:
+        - name: http
+          containerPort: 8081
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+

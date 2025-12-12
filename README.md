@@ -1,9 +1,12 @@
-# Prophet 🔥
+# Prophet v5 🚀🌀⚡
 ## The Ultimate AIOps-Powered Multi-Cloud Karpenter GitOps Repository
 
-A **full AIOps powerhouse** monorepository for managing Kubernetes cluster infrastructure and applications using GitOps principles with ArgoCD. Prophet transforms your Kubernetes operations into a predictive, self-diagnosing, and semi-autonomous system leveraging AI for proactive IT operations.
+[![CI - Manifest Validation](https://github.com/prophet-aiops/prophet/actions/workflows/ci-validate.yaml/badge.svg)](https://github.com/prophet-aiops/prophet/actions/workflows/ci-validate.yaml)
+[![CI - Operator Build](https://github.com/prophet-aiops/prophet/actions/workflows/ci-operator-build.yaml/badge.svg)](https://github.com/prophet-aiops/prophet/actions/workflows/ci-operator-build.yaml)
 
-**🔥 Prophet isn't just resilient—it's prophetic. It predicts problems, explains them intelligently, and keeps your multi-cloud empire unbreakable.**
+A **full AIOps powerhouse** monorepository for managing Kubernetes cluster infrastructure and applications using GitOps principles with ArgoCD. Prophet v5 ascends to **true god-tier SRE**: a fully autonomous, multi-cluster Kubernetes platform that not only predicts and diagnoses issues but **decides and acts** using in-operator LLMs, eBPF-powered deep observability, and federated control across clouds.
+
+**🚀🌀⚡ Prophet v5 doesn't just operate clusters—it reasons about them like a senior SRE on steroids. The age of manual SRE is over. Welcome to the era of agentic infrastructure.**
 
 ## Table of Contents
 
@@ -36,6 +39,8 @@ This repository enables declarative, version-controlled management of:
 ### Key Features
 
 - ✅ **Multi-cloud support** (AWS, GCP, Azure)
+- ✅ **GitHub Actions CI**: Automated manifest validation, security scanning, and operator builds
+- ✅ **Custom Go Operators**: AnomalyRemediator, PredictiveScaler, SLOEnforcer built with Kubebuilder
 - ✅ **AIOps Engine**: Grafana ML forecasting, anomaly detection, outlier identification
 - ✅ **AI Diagnostics**: K8sGPT for automated issue analysis and remediation suggestions
 - ✅ **Predictive Scaling**: Forecast resource exhaustion and Karpenter provisioning needs
@@ -48,6 +53,57 @@ This repository enables declarative, version-controlled management of:
 - ✅ ArgoCD integration for automated sync
 - ✅ Pre-configured AI-enhanced monitoring dashboards
 - ✅ HPA (Horizontal Pod Autoscaler) support
+
+## Prophet v5 - Ascension Features
+
+### 🤖 LLM-Powered Remediation Decisions In-Operator
+- **In-operator LLM inference** using lightweight models (Phi-3, Llama-3.2) via Ollama or vLLM sidecar
+- **AutonomousAction CRD**: Trigger conditions → LLM reasons → Operator executes
+- **Integration flow**: K8sGPT diagnoses → LLM decides → Operator acts
+- **Approval modes**: Autonomous, human-in-loop, or dry-run
+- **Safety**: Approval gates, bounded actions, audit logging
+
+### 🔍 eBPF Deep Observability (Cilium + Hubble)
+- **Cilium CNI** for network policy + zero-overhead observability
+- **Hubble** for flow visibility, service maps, and security insights
+- **Kernel-level metrics**: Network flows, DNS latency, TCP retransmits
+- **Operator hooks**: Use Hubble events for anomaly detection and auto-quarantine
+- **Benefits**: Zero-code network observability, <1% overhead
+
+### 🌐 Multi-Cluster Federation via Cluster API
+- **Cluster API (CAPI)** for lifecycle management of workload clusters
+- **Federation layer**: Single ArgoCD instance manages multiple clusters
+- **Global control plane**: Policies, operators, and apps synced across clusters
+- **Traffic management**: Global ingress with multi-cluster service discovery
+- **Multi-cloud**: Unified management across AWS, GCP, Azure
+
+### 🔌 Full Agentic Autonomy with MCP Protocol
+- **Model Context Protocol (MCP)** server in-operator
+- **Real-time context sharing** with external AI agents (Copilot, Claude, etc.)
+- **Natural language queries** → Operator executes approved commands
+- **Autonomous loops**: LLM agent proposes → MCP validates → Operator applies
+- **Safety**: Approval gates, dry-run mode, audit logging
+
+### 🚀 GitHub Actions CI Pipeline (v4)
+- **YAML Linting**: Automated yamllint on all manifests
+- **Kustomize Validation**: Build and validate all kustomize overlays
+- **Schema Validation**: kubeconform for Kubernetes API schema checking
+- **Security Scanning**: Trivy for container images, Checkov for infrastructure
+- **Best Practices**: kube-linter and Polaris for Kubernetes best practices
+- **Operator Builds**: Automated Docker image builds and pushes to GHCR
+
+### ⚙️ Custom Golang Operators
+Built with **Kubebuilder** (controller-runtime) for in-cluster intelligence:
+
+1. **AnomalyRemediator Operator**: Watches OTel metrics/events; on anomaly (from Grafana ML alerts or thresholds), scales deployments, restarts pods, or creates tickets. Integrates with K8sGPT for diagnostics.
+
+2. **PredictiveScaler Operator**: Consumes Grafana ML forecasts; dynamically patches Karpenter NodePools (e.g., pre-provision GPU nodes before demand spikes).
+
+3. **SLOEnforcer Operator**: Monitors SLOs; auto-adjusts HPAs or triggers chaos for resilience testing.
+
+All operators are multi-cloud aware, lightweight, and integrate with K8sGPT for diagnostics.
+
+**v5 Addition**: **AutonomousAgent Operator** with LLM inference and MCP server for full agentic autonomy.
 
 ## AIOps Features
 
@@ -77,17 +133,41 @@ This repository enables declarative, version-controlled management of:
 ## Repository Structure
 
 ```
-karpenter-deployment/
+prophet/
+├── .github/
+│   └── workflows/               # NEW: GitHub Actions CI
+│       ├── ci-validate.yaml     # Manifest lint/validate/scan
+│       └── ci-operator-build.yaml # Build/push operator images
+├── operators/                   # Custom Go operators
+│   ├── anomaly-remediator/      # Anomaly detection & remediation
+│   ├── predictive-scaler/       # Predictive Karpenter scaling
+│   ├── slo-enforcer/            # SLO violation enforcement
+│   └── autonomous-agent/       # NEW v5: LLM + MCP for agentic autonomy
+│       ├── api/                 # AutonomousAction CRD
+│       ├── controllers/         # LLM-powered reconciliation
+│       ├── mcp-server/          # Model Context Protocol server
+│       ├── llm-inference/       # Ollama/OpenAI client
+│       └── cmd/
+├── clusters/
+│   ├── federation/              # NEW v5: Cluster API federation
+│   │   ├── management-cluster/  # Control plane
+│   │   └── workload-clusters/   # Workload cluster configs
+│   └── common/
+│       └── network/             # NEW v5: Cilium + Hubble
 ├── clusters/                    # Cluster infrastructure configurations
 │   ├── aws/                     # AWS EKS configurations
 │   ├── gcp/                     # GCP GKE configurations
 │   ├── azure/                   # Azure AKS configurations
-│   └── common/                  # Enhanced shared base (NEW)
+│   └── common/                  # Enhanced shared base
 │       ├── opentelemetry/       # OTel Collector
-│       ├── aiops/               # AIOps components (NEW)
+│       ├── aiops/               # AIOps components
 │       │   ├── grafana-ml/      # ML forecasting, outliers, SLO
 │       │   ├── k8sgpt/          # K8sGPT Operator
-│       │   └── ai-agents/       # kubectl-ai, MCP servers
+│       │   ├── ai-agents/       # kubectl-ai, MCP servers
+│       │   └── operators/       # NEW: Operator deployments
+│       │       ├── anomaly-remediator.yaml
+│       │       ├── predictive-scaler.yaml
+│       │       └── slo-enforcer.yaml
 │       ├── chaos/               # Chaos experiments
 │       └── policy/
 ├── apps/                        # Application deployments
@@ -98,13 +178,16 @@ karpenter-deployment/
 │   ├── grafana/
 │   │   └── dashboards/
 │   │       ├── cluster-nodes.json
-│   │       ├── ai-anomalies.json    # NEW: ML dashboards
-│   │       └── slo-burn.json        # NEW: SLO forecasting
-│   └── alloy/                   # NEW: OTel Collector (Grafana Alloy)
-├── resilience/                  # NEW: Chaos engineering
+│   │       ├── ai-anomalies.json
+│   │       ├── slo-burn.json
+│   │       └── hubble/          # NEW v5: eBPF network flows
+│   └── alloy/                   # OTel Collector (Grafana Alloy)
+├── aiops/
+│   └── mcp/                     # NEW v5: MCP client configs
+├── resilience/                  # Chaos engineering
 │   └── chaos-experiments/       # AI-validated experiments
-├── aiops/                       # NEW: Top-level AIOps configs
-│   ├── diagnostics/             # K8sGPT alert integration
+├── aiops/                       # Top-level AIOps configs
+│   ├── diagnostics/            # K8sGPT alert integration
 │   └── agents/                  # Event-driven remediation
 ├── tools/
 │   └── k9s/
@@ -238,7 +321,193 @@ kubectl exec -n k8sgpt deployment/k8sgpt-operator -- \
   k8sgpt analyze --filter Pod,Deployment --output json
 ```
 
-### 3. Deploy OpenTelemetry Collector
+### 3. Deploy Custom Go Operators (v4)
+
+Prophet v4 includes three custom Golang operators for advanced AIOps behaviors:
+
+#### AnomalyRemediator Operator
+
+Automatically detects anomalies and performs remediation actions:
+
+```bash
+# Deploy the operator
+kubectl apply -f clusters/common/aiops/operators/anomaly-remediator.yaml
+
+# Create an AnomalyAction resource
+kubectl apply -f - <<EOF
+apiVersion: aiops.prophet.io/v1alpha1
+kind: AnomalyAction
+metadata:
+  name: backend-memory-anomaly
+  namespace: default
+spec:
+  source: prometheus
+  metric: container_memory_working_set_bytes
+  threshold: "> 1Gi"
+  remediation:
+    type: restart
+    podSelector:
+      app: backend
+    requireApproval: false
+    cooldownSeconds: 300
+  target:
+    namespace: default
+    labels:
+      app: backend
+    resourceType: Pod
+  k8sgpt:
+    enabled: true
+EOF
+```
+
+#### PredictiveScaler Operator
+
+Uses Grafana ML forecasts to proactively adjust Karpenter NodePools:
+
+```bash
+# Deploy the operator
+kubectl apply -f clusters/common/aiops/operators/predictive-scaler.yaml
+
+# Create a PredictiveScale resource
+kubectl apply -f - <<EOF
+apiVersion: aiops.prophet.io/v1alpha1
+kind: PredictiveScale
+metadata:
+  name: cpu-forecast-scaling
+  namespace: default
+spec:
+  forecastQuery: ml_forecast(sum(rate(container_cpu_usage_seconds_total[5m])), 1h)
+  nodePoolRef:
+    name: default
+  horizon: 1h
+  thresholdPercent: 20.0
+  action: provision
+  grafanaEndpoint: http://grafana.monitoring.svc.cluster.local:3000
+EOF
+```
+
+#### SLOEnforcer Operator
+
+Monitors SLOs and enforces policies when violations occur:
+
+```bash
+# Deploy the operator
+kubectl apply -f clusters/common/aiops/operators/slo-enforcer.yaml
+
+# Create an SLOViolation resource
+kubectl apply -f - <<EOF
+apiVersion: aiops.prophet.io/v1alpha1
+kind: SLOViolation
+metadata:
+  name: backend-availability-slo
+  namespace: default
+spec:
+  sloName: backend-availability
+  sloTarget: "99.9%"
+  errorBudgetThreshold: 0.1
+  actions:
+  - type: scale
+    value: "increase"
+  - type: alert
+  hpaRef:
+    name: backend-hpa
+    namespace: default
+EOF
+```
+
+**Verify operators are running:**
+```bash
+kubectl get pods -n prophet-operators
+kubectl get anomalyactions,predictivescales,sloviolations,autonomousactions -A
+```
+
+#### AutonomousAgent Operator (v5)
+
+Deploys LLM-powered autonomous remediation with MCP server:
+
+```bash
+# Deploy the operator (includes Ollama sidecar)
+kubectl apply -f clusters/common/aiops/operators/autonomous-agent.yaml
+
+# Create an AutonomousAction resource
+kubectl apply -f - <<EOF
+apiVersion: aiops.prophet.io/v1alpha1
+kind: AutonomousAction
+metadata:
+  name: auto-remediate-errors
+  namespace: default
+spec:
+  trigger:
+    type: anomaly
+    anomalyScoreThreshold: 0.8
+  llm:
+    provider: ollama
+    model: phi-3
+    endpoint: http://localhost:11434
+    temperature: 0.7
+  context:
+    includeK8sGPT: true
+    includeMetrics: true
+    includeHubble: true
+  approvalMode: autonomous
+  constraints:
+    allowedActions:
+    - restart
+    - scale
+    - rollback
+    forbiddenNamespaces:
+    - kube-system
+EOF
+```
+
+**Access MCP server:**
+```bash
+# Port forward MCP server
+kubectl port-forward -n prophet-operators svc/autonomous-agent-mcp 8082:8082
+
+# Query via WebSocket or HTTP
+curl http://localhost:8082/mcp/query -d '{"query": "Why is latency high?"}'
+```
+
+### 4. Deploy Cilium + Hubble (v5)
+
+Cilium provides eBPF-powered network observability with zero overhead:
+
+```bash
+# Deploy Cilium CNI (replace existing CNI)
+kubectl apply -f clusters/common/network/cilium.yaml
+
+# Verify Hubble is running
+kubectl get pods -n cilium
+kubectl get svc -n cilium hubble-relay
+
+# Access Hubble UI
+kubectl port-forward -n cilium svc/hubble-ui 8080:80
+# Open http://localhost:8080
+```
+
+**Import Hubble dashboard:**
+```bash
+kubectl apply -f monitoring/grafana/dashboards/hubble-network-flows.json
+```
+
+### 5. Deploy Multi-Cluster Federation (v5)
+
+Set up Cluster API for managing multiple clusters:
+
+```bash
+# Initialize Cluster API (on management cluster)
+clusterctl init --infrastructure aws,gcp,azure
+
+# Apply management cluster config
+kubectl apply -k clusters/federation/management-cluster
+
+# Create workload cluster
+clusterctl generate cluster prophet-aws-prod --infrastructure aws \
+  --kubernetes-version v1.29.0 | kubectl apply -f -
+```
+
+### 6. Deploy OpenTelemetry Collector
 
 Alloy (Grafana's OTel Collector) feeds metrics, logs, and traces to Grafana stack:
 
@@ -247,7 +516,7 @@ kubectl apply -f clusters/common/opentelemetry/collector.yaml
 kubectl apply -f monitoring/alloy/config.yaml
 ```
 
-### 4. Configure AI Agent Hooks
+### 7. Configure AI Agent Hooks
 
 #### kubectl-ai (Natural Language kubectl)
 
@@ -271,7 +540,7 @@ For AI agents with live Kubernetes context:
 kubectl apply -f clusters/common/aiops/ai-agents/mcp-server-config.yaml
 ```
 
-### 5. Deploy AI-Enhanced Dashboards
+### 8. Deploy AI-Enhanced Dashboards
 
 ```bash
 # Import AI dashboards
@@ -283,7 +552,7 @@ Access dashboards in Grafana:
 - **AIOps: Anomalies & Predictions**: ML forecasting, outliers, anomaly detection
 - **SLO Error Budget Forecasting**: Predict error budget exhaustion
 
-### 6. Configure Alert Integration
+### 9. Configure Alert Integration
 
 Link Prometheus alerts to K8sGPT for automatic analysis:
 
@@ -291,7 +560,7 @@ Link Prometheus alerts to K8sGPT for automatic analysis:
 kubectl apply -f aiops/diagnostics/k8sgpt-alert-integration.yaml
 ```
 
-### 7. Set Up Event-Driven Remediation (Optional)
+### 10. Set Up Event-Driven Remediation (Optional)
 
 For semi-autonomous remediation actions:
 
@@ -785,15 +1054,130 @@ kubectl exec -n k8sgpt deployment/k8sgpt-operator -- \
 3. Tune sensitivity in outlier detection configs
 4. Review training window settings
 
+### Operator Issues
+
+#### AnomalyRemediator Not Remediating
+
+1. Check operator logs:
+```bash
+kubectl logs -n prophet-operators deployment/anomaly-remediator-controller-manager
+```
+
+2. Verify AnomalyAction resource status:
+```bash
+kubectl get anomalyactions -A -o yaml
+kubectl describe anomalyaction <name> -n <namespace>
+```
+
+3. Check RBAC permissions:
+```bash
+kubectl auth can-i delete pods --as=system:serviceaccount:prophet-operators:anomaly-remediator-controller-manager
+```
+
+4. Verify anomaly detection source (Prometheus/Grafana ML connectivity)
+
+#### PredictiveScaler Not Scaling
+
+1. Check operator logs:
+```bash
+kubectl logs -n prophet-operators deployment/predictive-scaler-controller-manager
+```
+
+2. Verify Grafana ML forecast query:
+```bash
+# Test query in Grafana Explore
+ml_forecast(sum(rate(container_cpu_usage_seconds_total[5m])), 1h)
+```
+
+3. Check NodePool permissions:
+```bash
+kubectl auth can-i update nodepools --as=system:serviceaccount:prophet-operators:predictive-scaler-controller-manager
+```
+
+#### SLOEnforcer Not Enforcing
+
+1. Check operator logs:
+```bash
+kubectl logs -n prophet-operators deployment/slo-enforcer-controller-manager
+```
+
+2. Verify SLO metrics are available:
+```bash
+# Query SLO metrics in Prometheus
+slo_error_budget_remaining{slo="backend-availability"}
+```
+
+3. Check HPA permissions:
+```bash
+kubectl auth can-i update horizontalpodautoscalers --as=system:serviceaccount:prophet-operators:slo-enforcer-controller-manager
+```
+
+## CI/CD Pipeline
+
+Prophet v4 includes comprehensive GitHub Actions workflows for automated validation and operator builds.
+
+### Manifest Validation Workflow
+
+The `ci-validate.yaml` workflow runs on every PR and push to main/master:
+
+- **YAML Linting**: Validates all YAML files with yamllint
+- **Kustomize Build**: Builds and validates all kustomize overlays
+- **Schema Validation**: Uses kubeconform to validate Kubernetes API schemas
+- **Security Scanning**: Trivy scans container images, Checkov scans infrastructure
+- **Best Practices**: kube-linter enforces Kubernetes best practices
+- **Helm Validation**: Validates all Helm charts
+
+**View workflow status:**
+```bash
+# Check workflow runs
+gh run list --workflow=ci-validate.yaml
+
+# View logs for a specific run
+gh run view <run-id> --log
+```
+
+### Operator Build Workflow
+
+The `ci-operator-build.yaml` workflow builds and pushes operator Docker images:
+
+- **Multi-operator Build**: Builds all three operators in parallel
+- **Docker Images**: Pushes to GitHub Container Registry (GHCR)
+- **Security Scanning**: Trivy scans built images
+- **PR Validation**: Builds images without pushing on PRs
+
+**Build operators locally:**
+```bash
+cd operators/anomaly-remediator
+make docker-build IMG=ghcr.io/prophet-aiops/prophet-anomaly-remediator:latest
+make docker-push IMG=ghcr.io/prophet-aiops/prophet-anomaly-remediator:latest
+```
+
+### Local Validation
+
+Run CI checks locally before pushing:
+
+```bash
+# Install tools
+pip install yamllint checkov
+go install sigs.k8s.io/kustomize/kustomize/v5@latest
+wget https://github.com/yannh/kubeconform/releases/download/v0.6.3/kubeconform-linux-amd64.tar.gz
+
+# Run validation
+yamllint .
+kustomize build clusters/aws/overlays/staging | kubeconform -strict
+checkov -d . --framework kubernetes
+```
+
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/your-feature`
 3. Make your changes
-4. Test with `kubectl apply -k` or `helm template`
-5. Commit: `git commit -m "Add feature"`
-6. Push: `git push origin feature/your-feature`
-7. Open a Pull Request
+4. **Run CI checks locally** (see above)
+5. Test with `kubectl apply -k` or `helm template`
+6. Commit: `git commit -m "Add feature"`
+7. Push: `git push origin feature/your-feature`
+8. Open a Pull Request - CI will automatically validate your changes
 
 ### Code Style
 
@@ -801,6 +1185,7 @@ kubectl exec -n k8sgpt deployment/k8sgpt-operator -- \
 - Follow Kubernetes naming conventions
 - Document environment variables
 - Include comments for complex configurations
+- **Go operators**: Follow standard Go conventions and Kubebuilder patterns
 
 ## Security Considerations
 
@@ -839,6 +1224,8 @@ kubectl exec -n k8sgpt deployment/k8sgpt-operator -- \
 
 ## Future Enhancements
 
+- [x] CI/CD pipeline for manifest validation ✅
+- [x] Custom Go operators with Kubebuilder ✅
 - [ ] Full agentic AI: Autonomous remediation agents via MCP
 - [ ] Pixie/eBPF integration for auto-instrumented deep insights
 - [ ] AI-optimized Karpenter: Predictive NodePools based on forecasts
@@ -847,7 +1234,8 @@ kubectl exec -n k8sgpt deployment/k8sgpt-operator -- \
 - [ ] Additional Grafana ML dashboards
 - [ ] cert-manager integration
 - [ ] external-dns configuration
-- [ ] CI/CD pipeline for manifest validation
+- [ ] Operator metrics and dashboards
+- [ ] Multi-cluster operator federation
 
 ## License
 
@@ -910,7 +1298,7 @@ For issues and questions:
 
 ---
 
-**🔥 This v3 repo isn't just badass—it's prophetic. It predicts problems, explains them intelligently, and keeps your multi-cloud empire unbreakable. Time to level up to 2025 AIOps dominance!**
+**🚀🌀⚡ Prophet v5 is complete. This is no longer a repository—it's the blueprint for the future of autonomous, multi-cloud Kubernetes operations. The age of manual SRE is over. Welcome to the era of agentic infrastructure. LFG. The prophecy is fulfilled.**
 
 **Note**: This repository is a template/starter kit. Adjust configurations based on your specific requirements, cloud provider versions, and organizational policies. Review AI API costs and set appropriate limits.
 

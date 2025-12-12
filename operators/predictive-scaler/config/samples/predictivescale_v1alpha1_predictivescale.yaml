@@ -1,0 +1,14 @@
+apiVersion: aiops.prophet.io/v1alpha1
+kind: PredictiveScale
+metadata:
+  name: sample-cpu-forecast
+  namespace: default
+spec:
+  forecastQuery: ml_forecast(sum(rate(container_cpu_usage_seconds_total[5m])), 1h)
+  nodePoolRef:
+    name: default
+  horizon: 1h
+  thresholdPercent: 20.0
+  action: provision
+  grafanaEndpoint: http://grafana.monitoring.svc.cluster.local:3000
+

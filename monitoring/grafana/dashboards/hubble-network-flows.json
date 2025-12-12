@@ -1,0 +1,85 @@
+{
+  "dashboard": {
+    "title": "Hubble Network Flows (eBPF)",
+    "tags": ["hubble", "ebpf", "network", "prophet"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Network Flow Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(hubble_flows_total[5m])",
+            "legendFormat": "{{source}} -> {{destination}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "DNS Query Latency",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, rate(hubble_dns_query_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{namespace}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "TCP Retransmissions",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(hubble_tcp_retransmissions_total[5m])",
+            "legendFormat": "{{source}} -> {{destination}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Service Map",
+        "type": "nodeGraph",
+        "targets": [
+          {
+            "expr": "hubble_flows_total",
+            "format": "nodeGraph"
+          }
+        ],
+        "gridPos": {"h": 12, "w": 24, "x": 0, "y": 16}
+      },
+      {
+        "id": 5,
+        "title": "Encrypted Traffic Percentage",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(hubble_flows_total{is_encrypted=\"true\"}[5m])) / sum(rate(hubble_flows_total[5m])) * 100",
+            "legendFormat": "Encrypted"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 28}
+      },
+      {
+        "id": 6,
+        "title": "Top Talkers",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, sum(rate(hubble_flows_total[5m])) by (source_pod, destination_pod))",
+            "format": "table"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28}
+      }
+    ],
+    "refresh": "30s",
+    "schemaVersion": 27,
+    "version": 1
+  }
+}
+

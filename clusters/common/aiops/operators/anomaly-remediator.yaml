@@ -1,0 +1,230 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prophet-operators
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: anomalyactions.aiops.prophet.io
+spec:
+  group: aiops.prophet.io
+  names:
+    kind: AnomalyAction
+    listKind: AnomalyActionList
+    plural: anomalyactions
+    singular: anomalyaction
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              source:
+                type: string
+              metric:
+                type: string
+              threshold:
+                type: string
+              remediation:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  replicas:
+                    type: integer
+                  podSelector:
+                    type: object
+                  requireApproval:
+                    type: boolean
+                  cooldownSeconds:
+                    type: integer
+              target:
+                type: object
+                properties:
+                  namespace:
+                    type: string
+                  labels:
+                    type: object
+                  resourceType:
+                    type: string
+              k8sgpt:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  endpoint:
+                    type: string
+              webhookUrl:
+                type: string
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+              lastDetected:
+                type: string
+                format: date-time
+              lastRemediated:
+                type: string
+                format: date-time
+              remediationCount:
+                type: integer
+              k8sgptAnalysis:
+                type: string
+              errorMessage:
+                type: string
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: anomaly-remediator-controller-manager
+  namespace: prophet-operators
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: anomaly-remediator-manager-role
+rules:
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - anomalyactions
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - anomalyactions/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - anomalyactions/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anomaly-remediator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: anomaly-remediator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: anomaly-remediator-controller-manager
+  namespace: prophet-operators
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: anomaly-remediator-controller-manager
+  namespace: prophet-operators
+  labels:
+    app: anomaly-remediator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: anomaly-remediator
+  template:
+    metadata:
+      labels:
+        app: anomaly-remediator
+    spec:
+      serviceAccountName: anomaly-remediator-controller-manager
+      containers:
+      - name: manager
+        image: ghcr.io/prophet-aiops/prophet-anomaly-remediator:latest
+        command:
+        - /manager
+        args:
+        - --leader-elect
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+# Example AnomalyAction resource
+apiVersion: aiops.prophet.io/v1alpha1
+kind: AnomalyAction
+metadata:
+  name: backend-memory-anomaly
+  namespace: default
+spec:
+  source: prometheus
+  metric: container_memory_working_set_bytes
+  threshold: "> 1Gi"
+  remediation:
+    type: restart
+    podSelector:
+      app: backend
+    requireApproval: false
+    cooldownSeconds: 300
+  target:
+    namespace: default
+    labels:
+      app: backend
+    resourceType: Pod
+  k8sgpt:
+    enabled: true
+    endpoint: http://k8sgpt-operator.k8sgpt.svc.cluster.local:8080
+  webhookUrl: ""
+

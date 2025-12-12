@@ -7,9 +7,16 @@
 bin/
 testbin/
 
-# Go
+# Test binary
 *.test
+
+# Output of the go coverage tool
 *.out
+
+# Kubernetes Generated files
+*.generated.go
+
+# Go workspace file
 go.work
 
 # IDE
@@ -19,13 +26,7 @@ go.work
 *.swo
 *~
 
-# Kubernetes
-*.generated.go
-
 # Build artifacts
 manager
 cover.out
 
-# Operator build artifacts
-operators/*/bin/
-operators/*/cover.out

@@ -1,0 +1,58 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: prophet-aws-prod
+  namespace: default
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+      - 192.168.0.0/16
+    serviceDomain: cluster.local
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: KubeadmControlPlane
+    name: prophet-aws-prod-control-plane
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AWSCluster
+    name: prophet-aws-prod
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AWSCluster
+metadata:
+  name: prophet-aws-prod
+  namespace: default
+spec:
+  region: us-east-1
+  sshKeyName: prophet-key
+  network:
+    vpc:
+      cidrBlock: 10.0.0.0/16
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlane
+metadata:
+  name: prophet-aws-prod-control-plane
+  namespace: default
+spec:
+  replicas: 3
+  version: v1.29.0
+  infrastructureTemplate:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AWSMachineTemplate
+    name: prophet-aws-prod-control-plane
+  kubeadmConfigSpec:
+    clusterConfiguration:
+      apiServer:
+        extraArgs:
+          cloud-provider: aws
+    initConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          cloud-provider: aws
+---
+# Example workload cluster configuration
+# In production, use clusterctl to generate these manifests:
+# clusterctl generate cluster prophet-aws-prod --infrastructure aws --kubernetes-version v1.29.0
+

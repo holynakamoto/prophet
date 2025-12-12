@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: capi-system
+
+resources:
+  - cluster-api-core.yaml
+  - cluster-api-provider-aws.yaml
+  - cluster-api-provider-gcp.yaml
+  - cluster-api-provider-azure.yaml
+
+commonLabels:
+  cluster.x-k8s.io/provider: management
+
+# Cluster API Management Cluster Configuration
+# This is the control plane that manages workload clusters across clouds
+

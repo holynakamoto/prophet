@@ -1,0 +1,183 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: sloviolations.aiops.prophet.io
+spec:
+  group: aiops.prophet.io
+  names:
+    kind: SLOViolation
+    listKind: SLOViolationList
+    plural: sloviolations
+    singular: sloviolation
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              sloName:
+                type: string
+              sloTarget:
+                type: string
+              errorBudgetThreshold:
+                type: number
+              actions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    value:
+                      type: string
+              hpaRef:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+              enableChaos:
+                type: boolean
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+              errorBudgetRemaining:
+                type: number
+              timeToExhaustion:
+                type: number
+              lastViolated:
+                type: string
+                format: date-time
+              violationCount:
+                type: integer
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: slo-enforcer-controller-manager
+  namespace: prophet-operators
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: slo-enforcer-manager-role
+rules:
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - sloviolations
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - sloviolations/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: slo-enforcer-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: slo-enforcer-manager-role
+subjects:
+- kind: ServiceAccount
+  name: slo-enforcer-controller-manager
+  namespace: prophet-operators
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: slo-enforcer-controller-manager
+  namespace: prophet-operators
+  labels:
+    app: slo-enforcer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: slo-enforcer
+  template:
+    metadata:
+      labels:
+        app: slo-enforcer
+    spec:
+      serviceAccountName: slo-enforcer-controller-manager
+      containers:
+      - name: manager
+        image: ghcr.io/prophet-aiops/prophet-slo-enforcer:latest
+        command:
+        - /manager
+        args:
+        - --leader-elect
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+# Example SLOViolation resource
+apiVersion: aiops.prophet.io/v1alpha1
+kind: SLOViolation
+metadata:
+  name: backend-availability-slo
+  namespace: default
+spec:
+  sloName: backend-availability
+  sloTarget: "99.9%"
+  errorBudgetThreshold: 0.1
+  actions:
+  - type: scale
+    value: "increase"
+  - type: alert
+  hpaRef:
+    name: backend-hpa
+    namespace: default
+  enableChaos: false
+

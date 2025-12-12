@@ -1,0 +1,109 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: sloviolations.
+spec:
+  group: ""
+  names:
+    kind: SLOViolation
+    listKind: SLOViolationList
+    plural: sloviolations
+    singular: sloviolation
+  scope: Namespaced
+  versions:
+  - name: ""
+    schema:
+      openAPIV3Schema:
+        description: SLOViolation is the Schema for the sloviolations API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SLOViolationSpec defines the desired state of SLOViolation
+            properties:
+              actions:
+                description: Actions to take on violation
+                items:
+                  description: SLOAction defines actions to take
+                  properties:
+                    type:
+                      type: string
+                    value:
+                      type: string
+                  required:
+                  - type
+                  type: object
+                type: array
+              enableChaos:
+                description: Enable chaos testing
+                type: boolean
+              errorBudgetThreshold:
+                description: Error budget remaining threshold
+                type: number
+              hpaRef:
+                description: HPA to adjust
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+              sloName:
+                description: SLO name
+                type: string
+              sloTarget:
+                description: SLO target (e.g., "99.9%")
+                type: string
+            required:
+            - actions
+            - errorBudgetThreshold
+            - sloName
+            - sloTarget
+            type: object
+          status:
+            description: SLOViolationStatus defines the observed state of SLOViolation
+            properties:
+              errorBudgetRemaining:
+                description: Current error budget remaining
+                type: number
+              lastViolated:
+                description: Last violation time
+                format: date-time
+                type: string
+              phase:
+                description: 'Phase: "Monitoring", "Violated", "Remediating", "Resolved"'
+                type: string
+              timeToExhaustion:
+                description: Time to exhaustion (days)
+                type: number
+              violationCount:
+                description: Violation count
+                format: int32
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

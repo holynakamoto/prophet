@@ -1,0 +1,170 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: predictivescales.aiops.prophet.io
+spec:
+  group: aiops.prophet.io
+  names:
+    kind: PredictiveScale
+    listKind: PredictiveScaleList
+    plural: predictivescales
+    singular: predictivescale
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              forecastQuery:
+                type: string
+              nodePoolRef:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+              horizon:
+                type: string
+              thresholdPercent:
+                type: number
+              action:
+                type: string
+              grafanaEndpoint:
+                type: string
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+              lastForecast:
+                type: number
+              lastScaled:
+                type: string
+                format: date-time
+              scalingCount:
+                type: integer
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: predictive-scaler-controller-manager
+  namespace: prophet-operators
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: predictive-scaler-manager-role
+rules:
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - predictivescales
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - predictivescales/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - karpenter.sh
+  resources:
+  - nodepools
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: predictive-scaler-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: predictive-scaler-manager-role
+subjects:
+- kind: ServiceAccount
+  name: predictive-scaler-controller-manager
+  namespace: prophet-operators
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: predictive-scaler-controller-manager
+  namespace: prophet-operators
+  labels:
+    app: predictive-scaler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: predictive-scaler
+  template:
+    metadata:
+      labels:
+        app: predictive-scaler
+    spec:
+      serviceAccountName: predictive-scaler-controller-manager
+      containers:
+      - name: manager
+        image: ghcr.io/prophet-aiops/prophet-predictive-scaler:latest
+        command:
+        - /manager
+        args:
+        - --leader-elect
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+# Example PredictiveScale resource
+apiVersion: aiops.prophet.io/v1alpha1
+kind: PredictiveScale
+metadata:
+  name: cpu-forecast-scaling
+  namespace: default
+spec:
+  forecastQuery: ml_forecast(sum(rate(container_cpu_usage_seconds_total[5m])), 1h)
+  nodePoolRef:
+    name: default
+  horizon: 1h
+  thresholdPercent: 20.0
+  action: provision
+  grafanaEndpoint: http://grafana.monitoring.svc.cluster.local:3000
+
