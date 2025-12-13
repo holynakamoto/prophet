@@ -1,0 +1,107 @@
+apiVersion: aiops.prophet.io/v1alpha1
+kind: HealthCheck
+metadata:
+  name: backend-health-check
+  namespace: default
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+    namespace: default
+  probes:
+    - name: http-readiness
+      type: http
+      httpGet:
+        path: /health
+        port: 8080
+        scheme: HTTP
+    - name: tcp-database
+      type: tcp
+      tcpSocket:
+        port: 5432
+  failureThreshold: 3
+  periodSeconds: 10
+  timeoutSeconds: 5
+  remediation:
+    action: restart
+    requireApproval: false
+    cooldownSeconds: 300
+
+---
+# Example: HealthCheck with custom probe (database connectivity)
+apiVersion: aiops.prophet.io/v1alpha1
+kind: HealthCheck
+metadata:
+  name: app-with-db-check
+  namespace: default
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-app
+    namespace: default
+  probes:
+    - name: http-health
+      type: http
+      httpGet:
+        path: /health
+        port: 8080
+    - name: db-connectivity
+      type: custom
+      custom:
+        description: "Check database connectivity"
+        script: |
+          #!/bin/sh
+          psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "SELECT 1" || exit 1
+        env:
+          - name: DB_HOST
+            value: "postgres.default.svc.cluster.local"
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef:
+                name: db-credentials
+                key: username
+          - name: DB_NAME
+            value: "mydb"
+  failureThreshold: 3
+  periodSeconds: 15
+  remediation:
+    action: trigger-recovery-plan
+    recoveryPlanRef:
+      name: app-recovery-plan
+      namespace: default
+    cooldownSeconds: 600
+
+---
+# Example: HealthCheck that triggers AnomalyAction for recovery
+apiVersion: aiops.prophet.io/v1alpha1
+kind: HealthCheck
+metadata:
+  name: critical-app-health
+  namespace: production
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: critical-db
+    namespace: production
+  probes:
+    - name: api-health
+      type: http
+      httpGet:
+        path: /api/health
+        port: 8080
+        httpHeaders:
+          - name: X-Health-Check
+            value: "true"
+  failureThreshold: 2
+  periodSeconds: 5
+  remediation:
+    action: trigger-recovery-plan
+    recoveryPlanRef:
+      name: critical-app-recovery
+      namespace: production
+    requireApproval: true  # Require manual approval for critical workloads
+    cooldownSeconds: 60
+

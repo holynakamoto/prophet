@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: health-check-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: health-check-manager-role
+subjects:
+- kind: ServiceAccount
+  name: health-check-controller-manager
+  namespace: prophet-operators
+
