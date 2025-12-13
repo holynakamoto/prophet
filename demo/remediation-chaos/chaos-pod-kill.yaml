@@ -1,0 +1,15 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: pod-kill-demo
+  namespace: demo-prophet
+  labels:
+    demo: remediation-chaos
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    labelSelectors:
+      app: crashy-app
+  duration: "2m"  # Run for 2 minutes (kills pods once, then they restart and get killed again)
+

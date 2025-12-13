@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-client-config
+  namespace: default
+data:
+  # MCP Client Configuration for External Agents
+  # Compatible with Claude Desktop, Cursor, and other MCP clients
+  #
+  # NOTE: For HTTPS to verify properly, the MCP server must present a certificate whose SAN includes:
+  # - autonomous-agent-service
+  # - autonomous-agent-service.default.svc.cluster.local
+  # and clients must trust the issuing CA (via --cacert / a CA bundle / system trust).
+  
+  claude-desktop-config.json: |
+    {
+      "mcpServers": {
+        "prophet-kubernetes": {
+          "command": "curl",
+          "args": [
+            "-X", "POST",
+            "--cacert", "/path/to/prophet-mcp-ca-bundle.pem",
+            "https://autonomous-agent-service.default.svc.cluster.local:8082/mcp/tools/call",
+            "-H", "Content-Type: application/json",
+            "-d", "@-"
+          ],
+          "env": {
+            "KUBECONFIG": "/path/to/kubeconfig"
+          }
+        }
+      }
+    }
+  
+  # MCP Server Connection Details
+  mcp-server-endpoints.yaml: |
+    servers:
+      - name: prophet-mcp-server
+        endpoint: https://autonomous-agent-service.default.svc.cluster.local:8082
+        protocol: https
+        tls:
+          caBundlePath: /path/to/prophet-mcp-ca-bundle.pem
+          clientCertPath: /path/to/prophet-mcp-client.crt
+          clientKeyPath: /path/to/prophet-mcp-client.key
+          insecureSkipVerify: false
+        tools:
+          - k8s_get_pods
+          - k8s_get_nodes
+          - k8s_get_deployments
+          - k8s_get_events
+          - k8s_scale_deployment
+          - k8s_restart_pod
+          - k8s_cordon_node
+          - k8s_drain_node
+          - k8s_get_metrics
+          - k8s_apply_network_policy
+          - k8s_get_k8sgpt_analysis
+          - k8s_get_forecast
+        authentication:
+          type: service-account
+          serviceAccount: autonomous-agent-controller-manager
+        policies:
+          # Action approval policies
+          auto_approve:
+            - k8s_get_pods
+            - k8s_get_nodes
+            - k8s_get_deployments
+            - k8s_get_events
+            - k8s_get_metrics
+          require_approval:
+            - k8s_scale_deployment
+            - k8s_restart_pod
+            - k8s_cordon_node
+            - k8s_drain_node
+            - k8s_apply_network_policy
+          dry_run_default:
+            - k8s_drain_node
+            - k8s_apply_network_policy
+  
+  # Agent Prompts and Instructions
+  agent-prompts.yaml: |
+    prompts:
+      system_prompt: |
+        You are an AI agent with access to a Kubernetes cluster via Model Context Protocol (MCP).
+        
+        You can:
+        - Query cluster state (pods, nodes, deployments, events)
+        - Get metrics and forecasts
+        - Execute remediation actions (with approval)
+        
+        Safety rules:
+        1. Always use dry-run first for high-impact actions
+        2. Query context before proposing actions
+        3. Explain your reasoning
+        4. Respect approval requirements
+        
+        Available tools:
+        - k8s_get_*: Read-only queries (auto-approved)
+        - k8s_scale_*, k8s_restart_*, etc.: Actions (require approval)
+      
+      example_queries:
+        - "Check the health of all nodes in my cluster"
+        - "Analyze why pods are pending in the default namespace"
+        - "What's the current CPU utilization across namespaces?"
+        - "Scale the backend deployment to 5 replicas (dry-run first)"
+        - "Restart all pods with label app=frontend that are in CrashLoopBackOff"
+        - "Get K8sGPT analysis for pods in the production namespace"
+        - "What's the forecast for memory usage in the next hour?"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: autonomous-agent-service
+  namespace: default
+spec:
+  # Provide a stable in-namespace name (`autonomous-agent-service`) for agents in `default`,
+  # while the operator and MCP server run in `prophet-operators`.
+  #
+  # Clients will connect to:
+  # - https://autonomous-agent-service.default.svc.cluster.local:8082
+  #
+  # The TLS certificate presented by the backing MCP server must include the SNI hostname
+  # `autonomous-agent-service.default.svc.cluster.local` in its SANs.
+  type: ExternalName
+  externalName: autonomous-agent-mcp.prophet-operators.svc.cluster.local
+

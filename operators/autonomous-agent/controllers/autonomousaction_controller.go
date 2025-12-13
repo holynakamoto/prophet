@@ -21,10 +21,11 @@ import (
 // AutonomousActionReconciler reconciles a AutonomousAction object
 type AutonomousActionReconciler struct {
 	client.Client
-	Scheme    *runtime.Scheme
-	Log       logr.Logger
-	LLMClient llminference.LLMClient
-	MCPServer *mcpserver.MCPServer
+	Scheme         *runtime.Scheme
+	Log            logr.Logger
+	LLMClient      llminference.LLMClient
+	MCPServer      *mcpserver.MCPServer
+	ActionExecutor *ActionExecutor
 }
 
 //+kubebuilder:rbac:groups=aiops.prophet.io,resources=autonomousactions,verbs=get;list;watch;create;update;patch;delete
@@ -90,10 +91,7 @@ func (r *AutonomousActionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		action.Status.ProposedAction = proposedAction
 
 		// Approval phase
-		if action.Spec.ApprovalMode == "dry-run" {
-			action.Status.Phase = "Completed"
-			logger.Info("Dry-run mode: action not executed", "action", proposedAction)
-		} else if action.Spec.ApprovalMode == "human-in-loop" {
+		if action.Spec.ApprovalMode == "human-in-loop" {
 			action.Status.Phase = "PendingApproval"
 			logger.Info("Human approval required", "action", proposedAction)
 		} else if action.Spec.ApprovalMode == "autonomous" {
@@ -103,7 +101,12 @@ func (r *AutonomousActionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				return ctrl.Result{}, err
 			}
 
-			result, err := r.executeAction(ctx, &action, proposedAction)
+			// Use ActionExecutor for safe execution
+			if r.ActionExecutor == nil {
+				r.ActionExecutor = NewActionExecutor(r.Client, logger)
+			}
+
+			result, err := r.ActionExecutor.ExecuteAction(ctx, &action, proposedAction)
 			if err != nil {
 				logger.Error(err, "Action execution failed")
 				action.Status.Phase = "Failed"
@@ -112,6 +115,27 @@ func (r *AutonomousActionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				action.Status.Phase = "Completed"
 				action.Status.ExecutionResult = result
 				action.Status.ActionCount++
+			}
+		} else if action.Spec.ApprovalMode == "dry-run" {
+			// Execute in dry-run mode
+			action.Status.Phase = "Executing"
+			if err := r.Status().Update(ctx, &action); err != nil {
+				return ctrl.Result{}, err
+			}
+
+			if r.ActionExecutor == nil {
+				r.ActionExecutor = NewActionExecutor(r.Client, logger)
+			}
+
+			result, err := r.ActionExecutor.ExecuteAction(ctx, &action, proposedAction)
+			if err != nil {
+				logger.Error(err, "Dry-run execution failed")
+				action.Status.Phase = "Failed"
+				action.Status.ErrorMessage = err.Error()
+			} else {
+				action.Status.Phase = "Completed"
+				action.Status.ExecutionResult = result
+				logger.Info("Dry-run completed", "result", result.Output)
 			}
 		}
 	} else {
@@ -153,27 +177,87 @@ func (r *AutonomousActionReconciler) checkTrigger(ctx context.Context, action *a
 	}
 }
 
-// gatherContext gathers context for LLM reasoning
+// gatherContext gathers context for LLM reasoning using MCP tools
 func (r *AutonomousActionReconciler) gatherContext(ctx context.Context, action *aiopsv1alpha1.AutonomousAction) (map[string]interface{}, error) {
+	logger := log.FromContext(ctx)
 	context := make(map[string]interface{})
 
+	// Use MCP tools to gather context if available
+	if r.MCPServer != nil && r.MCPServer.ToolExecutor() != nil {
+		// Gather pods in target namespaces
+		if len(action.Spec.Context.Namespaces) > 0 {
+			for _, ns := range action.Spec.Context.Namespaces {
+				pods, err := r.MCPServer.ToolExecutor().ExecuteTool(ctx, "k8s_get_pods", map[string]interface{}{
+					"namespace": ns,
+				})
+				if err == nil {
+					context[fmt.Sprintf("pods_%s", ns)] = pods
+				}
+			}
+		}
+
+		// Get nodes
+		nodes, err := r.MCPServer.ToolExecutor().ExecuteTool(ctx, "k8s_get_nodes", map[string]interface{}{})
+		if err == nil {
+			context["nodes"] = nodes
+		}
+	}
+
 	if action.Spec.Context.IncludeK8sGPT {
-		// Query K8sGPT analysis
-		context["k8sgpt"] = "K8sGPT analysis placeholder"
+		// Query K8sGPT analysis via MCP tool
+		if r.MCPServer != nil && r.MCPServer.ToolExecutor() != nil {
+			analysis, err := r.MCPServer.ToolExecutor().ExecuteTool(ctx, "k8s_get_k8sgpt_analysis", map[string]interface{}{})
+			if err == nil {
+				context["k8sgpt"] = analysis
+			} else {
+				logger.Info("K8sGPT analysis not available", "error", err)
+				context["k8sgpt"] = "K8sGPT analysis unavailable"
+			}
+		} else {
+			context["k8sgpt"] = "K8sGPT analysis placeholder"
+		}
 	}
 
 	if action.Spec.Context.IncludeMetrics {
-		// Query Prometheus metrics
-		context["metrics"] = "Metrics placeholder"
+		// Query metrics via MCP tool
+		if r.MCPServer != nil && r.MCPServer.ToolExecutor() != nil {
+			metrics, err := r.MCPServer.ToolExecutor().ExecuteTool(ctx, "k8s_get_metrics", map[string]interface{}{})
+			if err == nil {
+				context["metrics"] = metrics
+			} else {
+				context["metrics"] = "Metrics unavailable"
+			}
+		} else {
+			context["metrics"] = "Metrics placeholder"
+		}
 	}
 
 	if action.Spec.Context.IncludeEvents {
-		// Get recent events
-		context["events"] = "Events placeholder"
+		// Get recent events via MCP tool
+		if len(action.Spec.Context.Namespaces) > 0 {
+			allEvents := make([]interface{}, 0)
+			for _, ns := range action.Spec.Context.Namespaces {
+				if r.MCPServer != nil && r.MCPServer.ToolExecutor() != nil {
+					events, err := r.MCPServer.ToolExecutor().ExecuteTool(ctx, "k8s_get_events", map[string]interface{}{
+						"namespace": ns,
+					})
+					if err == nil {
+						allEvents = append(allEvents, events)
+					}
+				}
+			}
+			if len(allEvents) > 0 {
+				context["events"] = allEvents
+			} else {
+				context["events"] = "Events placeholder"
+			}
+		} else {
+			context["events"] = "Events placeholder"
+		}
 	}
 
 	if action.Spec.Context.IncludeHubble {
-		// Query Hubble flows
+		// Query Hubble flows (would need Hubble-specific tool)
 		context["hubble"] = "Hubble flows placeholder"
 	}
 
@@ -231,32 +315,13 @@ Analyze the situation and propose a remediation action. Consider the constraints
 	return response, proposedAction, nil
 }
 
-// executeAction executes the proposed action
+// executeAction is deprecated - use ActionExecutor.ExecuteAction instead
+// Kept for backward compatibility
 func (r *AutonomousActionReconciler) executeAction(ctx context.Context, action *aiopsv1alpha1.AutonomousAction, proposedAction aiopsv1alpha1.ProposedAction) (aiopsv1alpha1.ExecutionResult, error) {
-	startTime := time.Now()
-	result := aiopsv1alpha1.ExecutionResult{}
-
-	// In production, execute based on action type
-	switch proposedAction.Type {
-	case "restart":
-		// Restart pods
-		result.Output = "Pods restarted successfully"
-	case "scale":
-		// Scale deployment
-		result.Output = "Deployment scaled successfully"
-	case "rollback":
-		// Rollback deployment
-		result.Output = "Deployment rolled back successfully"
-	default:
-		return result, fmt.Errorf("unknown action type: %s", proposedAction.Type)
+	if r.ActionExecutor == nil {
+		r.ActionExecutor = NewActionExecutor(r.Client, r.Log)
 	}
-
-	now := metav1.Now()
-	result.ExecutedAt = &now
-	result.Success = true
-	result.DurationSeconds = time.Since(startTime).Seconds()
-
-	return result, nil
+	return r.ActionExecutor.ExecuteAction(ctx, action, proposedAction)
 }
 
 // SetupWithManager sets up the controller with the Manager.

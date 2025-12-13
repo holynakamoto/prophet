@@ -131,6 +131,10 @@ spec:
         args:
         - --leader-elect
         - --mcp-port=8082
+        - --mcp-tls-enabled=true
+        - --mcp-tls-port=8443
+        - --mcp-tls-cert-file=/etc/mcp/tls/tls.crt
+        - --mcp-tls-key-file=/etc/mcp/tls/tls.key
         resources:
           limits:
             cpu: 1000m
@@ -138,6 +142,10 @@ spec:
           requests:
             cpu: 200m
             memory: 256Mi
+        volumeMounts:
+        - name: mcp-tls
+          mountPath: /etc/mcp/tls
+          readOnly: true
         livenessProbe:
           httpGet:
             path: /healthz
@@ -165,6 +173,13 @@ spec:
       volumes:
       - name: ollama-data
         emptyDir: {}
+      - name: mcp-tls
+        secret:
+          # Expected: a `kubernetes.io/tls` Secret with keys `tls.crt` and `tls.key`.
+          # Ensure the server cert includes the Service DNS name(s) in SANs, e.g.:
+          # - autonomous-agent-mcp.prophet-operators.svc.cluster.local
+          # - autonomous-agent-service.default.svc.cluster.local (if using the ExternalName alias in `clusters/common/aiops/mcp/client-config.yaml`)
+          secretName: autonomous-agent-mcp-tls
 ---
 apiVersion: v1
 kind: Service
@@ -176,8 +191,13 @@ metadata:
 spec:
   type: ClusterIP
   ports:
+  - port: 443
+    targetPort: 8443
+    name: mcp-tls
   - port: 8082
-    targetPort: 8082
+    # Serve TLS on 8082 for clients that expect the MCP port to be 8082.
+    # This forwards TCP to the MCP server's HTTPS listener (default :8443).
+    targetPort: 8443
     name: mcp
   selector:
     app: autonomous-agent

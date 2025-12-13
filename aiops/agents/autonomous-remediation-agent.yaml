@@ -1,0 +1,273 @@
+apiVersion: aiops.prophet.io/v1alpha1
+kind: AutonomousAction
+metadata:
+  name: autonomous-remediation-agent
+  namespace: default
+  labels:
+    app: autonomous-agent
+    version: v6
+spec:
+  # Trigger configuration
+  trigger:
+    type: anomaly  # Options: anomaly, slo-violation, forecast, event
+    anomalyScoreThreshold: 0.8
+    errorBudgetThreshold: 0.1
+    forecastThreshold: 0.2
+  
+  # LLM configuration
+  llm:
+    provider: ollama  # Options: ollama, vllm, openai, anthropic
+    model: llama-3.2
+    endpoint: http://ollama:11434
+    temperature: 0.7
+    maxTokens: 2000
+    systemPrompt: |
+      You are an expert Kubernetes SRE agent with full cluster visibility.
+      
+      Your role:
+      1. Analyze cluster state, metrics, and events
+      2. Identify root causes of issues
+      3. Propose safe, effective remediation actions
+      4. Consider impact, risk, and best practices
+      
+      Available actions:
+      - scale: Scale deployments (low risk)
+      - restart: Restart pods (medium risk)
+      - rollback: Rollback deployments (medium risk)
+      - cordon: Cordon nodes (high risk)
+      - drain: Drain nodes (very high risk)
+      - network_policy: Apply emergency network policies (high risk)
+      
+      Always:
+      - Assess risk level (low/medium/high)
+      - Provide confidence score (0-1)
+      - Explain your reasoning
+      - Consider constraints and forbidden namespaces
+      
+      Return your analysis and proposed action in JSON format:
+      {
+        "reasoning": "...",
+        "type": "scale|restart|rollback|cordon|drain|network_policy",
+        "description": "...",
+        "confidence": 0.0-1.0,
+        "riskLevel": "low|medium|high",
+        "parameters": {...}
+      }
+  
+  # Context sources
+  context:
+    includeK8sGPT: true
+    includeMetrics: true
+    includeEvents: true
+    includeHubble: false
+    timeWindow: 15m
+    namespaces:
+      - default
+      - production
+  
+  # Approval mode: autonomous, human-in-loop, dry-run
+  approvalMode: human-in-loop
+  
+  # Action constraints
+  constraints:
+    allowedActions:
+      - scale
+      - restart
+      - rollback
+    forbiddenNamespaces:
+      - kube-system
+      - kube-public
+      - kube-node-lease
+    maxConcurrent: 3
+    cooldownSeconds: 300
+  
+  # MCP server endpoint (optional - for external agent integration)
+  # Use HTTPS. The `autonomous-agent-service` Service should present a valid TLS cert (or be
+  # fronted by a TLS-terminating proxy). See `clusters/common/aiops/mcp/client-config.yaml`.
+  mcpServer: https://autonomous-agent-service:8082
+---
+apiVersion: aiops.prophet.io/v1alpha1
+kind: AutonomousAction
+metadata:
+  name: predictive-scaling-agent
+  namespace: default
+  labels:
+    app: autonomous-agent
+    version: v6
+    type: predictive
+spec:
+  trigger:
+    type: forecast
+    forecastThreshold: 0.15  # 15% forecasted increase triggers action
+  
+  llm:
+    provider: ollama
+    model: phi-3
+    endpoint: http://ollama:11434
+    temperature: 0.5
+    systemPrompt: |
+      You are a predictive scaling agent. Analyze forecast data and proactively scale
+      resources before demand spikes occur. Focus on HPA-managed deployments.
+      
+      Always propose scale actions with sufficient lead time.
+      Consider current capacity and forecasted demand.
+  
+  context:
+    includeMetrics: true
+    includeK8sGPT: false
+    includeEvents: false
+    timeWindow: 1h
+    namespaces:
+      - default
+  
+  approvalMode: autonomous  # Predictive scaling can be fully autonomous
+  
+  constraints:
+    allowedActions:
+      - scale
+    maxConcurrent: 5
+    cooldownSeconds: 60
+---
+apiVersion: aiops.prophet.io/v1alpha1
+kind: AutonomousAction
+metadata:
+  name: security-response-agent
+  namespace: default
+  labels:
+    app: autonomous-agent
+    version: v6
+    type: security
+spec:
+  trigger:
+    type: event
+    eventPattern: ".*SecurityAlert.*|.*SuspiciousTraffic.*"
+  
+  llm:
+    provider: ollama
+    model: llama-3.2
+    endpoint: http://ollama:11434
+    temperature: 0.3  # Lower temperature for security decisions
+    systemPrompt: |
+      You are a security response agent. Analyze security events and network flows.
+      
+      When suspicious activity is detected:
+      1. Assess severity and scope
+      2. Propose containment actions (network policies, namespace quarantine)
+      3. Always require human approval for high-impact actions
+      
+      Security actions:
+      - network_policy: Quarantine namespace or pod
+      - cordon: Isolate node
+      - restart: Restart compromised pods
+  
+  context:
+    includeHubble: true
+    includeEvents: true
+    includeMetrics: false
+    timeWindow: 5m
+    namespaces: []  # All namespaces
+  
+  approvalMode: human-in-loop  # Security actions always require approval
+  
+  constraints:
+    allowedActions:
+      - network_policy
+      - cordon
+      - restart
+    maxConcurrent: 1  # One security action at a time
+    cooldownSeconds: 0  # No cooldown for security
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-workflows
+  namespace: default
+data:
+  workflows.yaml: |
+    # Agent Workflow Definitions
+    
+    workflows:
+      # Autonomous Recovery Workflow
+      - name: autonomous_recovery
+        description: "Fully autonomous recovery from common failure modes"
+        steps:
+          - name: detect
+            type: trigger
+            config:
+              anomalyScore: 0.8
+              duration: 5m
+          - name: analyze
+            type: context_gathering
+            tools:
+              - k8s_get_pods
+              - k8s_get_events
+              - k8s_get_k8sgpt_analysis
+          - name: reason
+            type: llm_reasoning
+            model: llama-3.2
+          - name: execute
+            type: action_execution
+            approval: autonomous
+            actions:
+              - scale
+              - restart
+      
+      # Predictive Intervention Workflow
+      - name: predictive_intervention
+        description: "Proactive scaling based on forecasts"
+        steps:
+          - name: forecast
+            type: trigger
+            config:
+              metric: "container_cpu_usage_seconds_total"
+              threshold: 0.15
+              horizon: 1h
+          - name: analyze
+            type: context_gathering
+            tools:
+              - k8s_get_forecast
+              - k8s_get_deployments
+              - k8s_get_metrics
+          - name: reason
+            type: llm_reasoning
+            model: phi-3
+          - name: execute
+            type: action_execution
+            approval: autonomous
+            actions:
+              - scale
+      
+      # Human-Assisted Fix Workflow
+      - name: human_assisted_fix
+        description: "Complex issues requiring human review"
+        steps:
+          - name: detect
+            type: trigger
+            config:
+              anomalyScore: 0.9
+          - name: analyze
+            type: context_gathering
+            tools:
+              - k8s_get_pods
+              - k8s_get_nodes
+              - k8s_get_events
+              - k8s_get_k8sgpt_analysis
+              - k8s_get_metrics
+          - name: reason
+            type: llm_reasoning
+            model: llama-3.2
+          - name: propose
+            type: action_proposal
+            approval: human-in-loop
+            notification:
+              channel: slack
+              format: markdown
+          - name: execute
+            type: action_execution
+            approval: manual
+            actions:
+              - scale
+              - restart
+              - rollback
+              - drain
+

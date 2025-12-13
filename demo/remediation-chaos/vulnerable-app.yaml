@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crashy-app-config
+  namespace: demo-prophet
+data:
+  behavior: "crash"  # Options: "crash" or "stable"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crashy-app
+  namespace: demo-prophet
+  labels:
+    app: crashy-app
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: crashy-app
+  template:
+    metadata:
+      labels:
+        app: crashy-app
+    spec:
+      containers:
+      - name: bomber
+        image: busybox:latest
+        command: 
+        - /bin/sh
+        - -c
+        - |
+          echo "Starting crashy app..."
+          # Read behavior from ConfigMap
+          BEHAVIOR=$(cat /etc/config/behavior 2>/dev/null || echo "crash")
+          echo "Behavior mode: $BEHAVIOR"
+          
+          if [ "$BEHAVIOR" = "stable" ]; then
+            echo "Running in stable mode - no crashes!"
+            while true; do
+              echo "$(date): App is running normally"
+              sleep 30
+            done
+          else
+            echo "Running in crash mode - will fail after 10 seconds"
+            sleep 10
+            # This will fail and cause the pod to restart
+            wget -q -O- http://localhost/nonexistent && sleep 30 || exit 1
+          fi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+          readOnly: true
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+      volumes:
+      - name: config
+        configMap:
+          name: crashy-app-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crashy-app
+  namespace: demo-prophet
+  labels:
+    app: crashy-app
+spec:
+  selector:
+    app: crashy-app
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+

@@ -1,0 +1,30 @@
+apiVersion: aiops.prophet.io/v1alpha1
+kind: AnomalyAction
+metadata:
+  name: crashy-remediation
+  namespace: demo-prophet
+  labels:
+    demo: remediation-chaos
+spec:
+  # Detection source: use pod status as trigger
+  source: prometheus
+  metric: kube_pod_status_phase
+  threshold: "phase=Failed OR phase=CrashLoopBackOff"
+  
+  # Target resources
+  target:
+    namespace: demo-prophet
+    labels:
+      app: crashy-app
+    resourceType: Pod
+  
+  # Remediation configuration
+  remediation:
+    type: restart
+    requireApproval: false
+    cooldownSeconds: 60  # Increased to 60s for better demo visibility
+  
+  # Enable K8sGPT for diagnostics (optional)
+  k8sgpt:
+    enabled: false
+

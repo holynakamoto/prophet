@@ -48,6 +48,13 @@ func (r *AnomalyActionReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	anomalyDetected := r.detectAnomaly(ctx, &anomalyAction)
 
 	if anomalyDetected {
+		// Record anomaly detection metric
+		AnomalyDetectedTotal.WithLabelValues(
+			anomalyAction.Namespace,
+			anomalyAction.Name,
+			anomalyAction.Spec.Source,
+		).Inc()
+
 		now := metav1.Now()
 		anomalyAction.Status.LastDetected = &now
 		anomalyAction.Status.Phase = "Detected"
@@ -71,7 +78,15 @@ func (r *AnomalyActionReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
 
+		// Record actionable anomaly metric (will proceed to remediation).
+		ActionableAnomalyTotal.WithLabelValues(
+			anomalyAction.Namespace,
+			anomalyAction.Name,
+			anomalyAction.Spec.Source,
+		).Inc()
+
 		// Perform remediation
+		remediationStart := time.Now()
 		if err := r.remediate(ctx, &anomalyAction); err != nil {
 			logger.Error(err, "Failed to remediate")
 			anomalyAction.Status.Phase = "Failed"
@@ -81,6 +96,19 @@ func (r *AnomalyActionReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			}
 			return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 		}
+
+		// Record remediation metrics
+		remediationDuration := time.Since(remediationStart).Seconds()
+		RemediationExecutedTotal.WithLabelValues(
+			anomalyAction.Namespace,
+			anomalyAction.Name,
+			anomalyAction.Spec.Remediation.Type,
+		).Inc()
+		RemediationDurationSeconds.WithLabelValues(
+			anomalyAction.Namespace,
+			anomalyAction.Name,
+			anomalyAction.Spec.Remediation.Type,
+		).Observe(remediationDuration)
 
 		// Update status
 		now = metav1.Now()
@@ -124,11 +152,11 @@ func (r *AnomalyActionReconciler) detectAnomaly(ctx context.Context, action *aio
 	if action.Spec.Source == "prometheus" || action.Spec.Source == "grafana-ml" {
 		// Placeholder: In production, query Prometheus client
 		logger.Info("Checking for anomalies via Prometheus/Grafana ML", "metric", action.Spec.Metric)
-		// Return true for demo purposes - in production, implement actual query
-		return false // Change to true to trigger remediation
+		// For demo: fall through to pod status check if Prometheus not available
+		// In production, implement actual Prometheus query here
 	}
 
-	// Fallback: Check pod status
+	// Fallback: Check pod status (always check as fallback or primary method)
 	pods := &corev1.PodList{}
 	selector := client.MatchingLabels(action.Spec.Target.Labels)
 	if err := r.List(ctx, pods, client.InNamespace(action.Spec.Target.Namespace), selector); err != nil {
@@ -140,6 +168,20 @@ func (r *AnomalyActionReconciler) detectAnomaly(ctx context.Context, action *aio
 		if pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodUnknown {
 			logger.Info("Anomaly detected: pod in failed/unknown state", "pod", pod.Name)
 			return true
+		}
+		// Check for CrashLoopBackOff or other waiting states
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			if containerStatus.State.Waiting != nil {
+				reason := containerStatus.State.Waiting.Reason
+				if reason == "CrashLoopBackOff" || reason == "ImagePullBackOff" || reason == "ErrImagePull" {
+					logger.Info("Anomaly detected: pod in error state", "pod", pod.Name, "reason", reason)
+					return true
+				}
+			}
+			if containerStatus.RestartCount > 3 {
+				logger.Info("Anomaly detected: pod has excessive restarts", "pod", pod.Name, "restarts", containerStatus.RestartCount)
+				return true
+			}
 		}
 		for _, condition := range pod.Status.Conditions {
 			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionFalse {
@@ -184,6 +226,12 @@ func (r *AnomalyActionReconciler) restartPods(ctx context.Context, action *aiops
 		if err := r.Delete(ctx, &pod); err != nil {
 			return err
 		}
+		// Record pod restart metric
+		PodRestartsTotal.WithLabelValues(
+			action.Spec.Target.Namespace,
+			action.Name,
+			pod.Name,
+		).Inc()
 	}
 
 	return nil
