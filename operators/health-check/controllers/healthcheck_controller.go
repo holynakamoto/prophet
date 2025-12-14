@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -129,7 +128,6 @@ func (r *HealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 // executeProbe executes a single health check probe
 func (r *HealthCheckReconciler) executeProbe(ctx context.Context, healthCheck *aiopsv1alpha1.HealthCheck, probe *aiopsv1alpha1.ProbeSpec) aiopsv1alpha1.ProbeResult {
-	logger := log.FromContext(ctx)
 	result := aiopsv1alpha1.ProbeResult{
 		Name:          probe.Name,
 		LastCheckTime: &metav1.Time{Time: time.Now()},
@@ -228,9 +226,8 @@ func (r *HealthCheckReconciler) executeHTTPProbe(ctx context.Context, pod corev1
 		return false
 	}
 
-	// Build URL (simplified - in production, use pod IP or service endpoint)
-	// For now, we'll check if the pod is ready (simplified implementation)
-	// In production, this should make an actual HTTP request to the pod
+	// Simplified implementation: check if pod is ready
+	// In production, this should make an actual HTTP request to pod IP:port
 	for _, condition := range pod.Status.Conditions {
 		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
 			return true
@@ -247,9 +244,9 @@ func (r *HealthCheckReconciler) executeTCPProbe(ctx context.Context, pod corev1.
 
 	// Simplified: check if pod is running
 	// In production, this should attempt a TCP connection to the pod IP:port
-	if pod.Status.Phase == corev1.PodRunning {
-		// Try to connect (simplified - in production, use pod IP)
-		address := fmt.Sprintf("%s:%d", pod.Status.PodIP, tcpSocket.Port.IntVal)
+	if pod.Status.Phase == corev1.PodRunning && pod.Status.PodIP != "" {
+		// Try to connect (simplified - in production, use pod IP with proper IPv6 handling)
+		address := net.JoinHostPort(pod.Status.PodIP, fmt.Sprintf("%d", tcpSocket.Port.IntVal))
 		conn, err := net.DialTimeout("tcp", address, timeout)
 		if err != nil {
 			return false
@@ -402,4 +399,3 @@ func (r *HealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&aiopsv1alpha1.HealthCheck{}).
 		Complete(r)
 }
-

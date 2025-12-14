@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-db
+  namespace: default
+  labels:
+    app: postgres-db
+    tier: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-db
+  template:
+    metadata:
+      labels:
+        app: postgres-db
+        tier: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "appdb"
+        - name: POSTGRES_USER
+          value: "appuser"
+        - name: POSTGRES_PASSWORD
+          value: "apppass123"
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - appuser
+            - -d
+            - appdb
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - appuser
+            - -d
+            - appdb
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      volumes:
+      - name: postgres-storage
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: default
+  labels:
+    app: postgres-db
+    tier: database
+spec:
+  selector:
+    app: postgres-db
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+  type: ClusterIP

@@ -1,0 +1,42 @@
+# Image configuration
+image:
+  repository: ghcr.io/prophet-aiops/prophet-label-enforcer
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Namespace to watch for resources (empty means all namespaces)
+watchNamespace: ""
+
+# Feature flags
+metrics:
+  enabled: true
+
+webhooks:
+  enabled: false
+
+# Controller configuration
+controllerManager:
+  manager:
+    args:
+    - --leader-elect
+    resources:
+      limits:
+        cpu: 100m
+        memory: 100Mi
+      requests:
+        cpu: 100m
+        memory: 20Mi
+  nodeSelector: {}
+  replicas: 1
+  tolerations: []
+  topologySpreadConstraints: []
+
+# Kubernetes cluster domain
+kubernetesClusterDomain: cluster.local
+
+# Service account configuration
+serviceAccount:
+  annotations: {}
+  automount: true
+  create: true
+  name: ""

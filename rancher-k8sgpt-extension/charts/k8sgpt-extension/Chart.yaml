@@ -1,0 +1,30 @@
+apiVersion: v2
+name: k8sgpt-extension
+description: Rancher UI Extension for K8sGPT Diagnostics - View AI-powered Kubernetes troubleshooting
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+icon: https://raw.githubusercontent.com/k8sgpt-ai/k8sgpt/main/images/k8sgpt-icon.png
+home: https://github.com/prophet-ai/rancher-k8sgpt-extension
+sources:
+  - https://github.com/prophet-ai/rancher-k8sgpt-extension
+keywords:
+  - rancher
+  - extension
+  - k8sgpt
+  - diagnostics
+  - ai
+  - kubernetes
+  - troubleshooting
+maintainers:
+  - name: Prophet AI
+    url: https://github.com/prophet-ai
+annotations:
+  catalog.cattle.io/display-name: K8sGPT Diagnostics
+  catalog.cattle.io/os: linux
+  catalog.cattle.io/rancher-version: ">=2.9.0"
+  catalog.cattle.io/ui-extensions-version: ">=3.0.0"
+  catalog.cattle.io/kube-version: ">=1.21-0"
+  catalog.cattle.io/namespace: cattle-ui-plugin-system
+  catalog.cattle.io/type: partner
+

@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       operator:
-        description: 'Operator to build (anomaly-remediator, predictive-scaler, slo-enforcer, or all)'
+        description: 'Operator to build (all, anomaly-remediator, predictive-scaler, slo-enforcer, health-check, budget-guard, cost-alert, diagnostic-remediator, autonomous-agent)'
         required: true
         default: 'all'
         type: choice
@@ -22,6 +22,11 @@ on:
           - anomaly-remediator
           - predictive-scaler
           - slo-enforcer
+          - health-check
+          - budget-guard
+          - cost-alert
+          - diagnostic-remediator
+          - autonomous-agent
 
 jobs:
   build-operators:
@@ -37,6 +42,11 @@ jobs:
           - anomaly-remediator
           - predictive-scaler
           - slo-enforcer
+          - health-check
+          - budget-guard
+          - cost-alert
+          - diagnostic-remediator
+          - autonomous-agent
 
     steps:
       - name: Checkout code

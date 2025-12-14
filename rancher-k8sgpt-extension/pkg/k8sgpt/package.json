@@ -1,0 +1,15 @@
+{
+  "name": "k8sgpt",
+  "version": "1.0.0",
+  "description": "K8sGPT Diagnostics Extension for Rancher",
+  "main": "index.js",
+  "keywords": [
+    "rancher",
+    "extension",
+    "k8sgpt",
+    "diagnostics",
+    "ai",
+    "kubernetes"
+  ]
+}
+

@@ -1,0 +1,223 @@
+{{ if .Values.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "label-enforcer.serviceAccountName" . }}
+  labels:
+  {{- include "label-enforcer.labels" . | nindent 4 }}
+  {{- with .Values.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "label-enforcer.fullname" . }}-manager-role
+  labels:
+  {{- include "label-enforcer.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - labelenforcers
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - labelenforcers/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - labelenforcers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "label-enforcer.fullname" . }}-metrics-reader
+  labels:
+  {{- include "label-enforcer.labels" . | nindent 4 }}
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "label-enforcer.fullname" . }}-manager-cluster-rolebinding
+  labels:
+  {{- include "label-enforcer.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: '{{ include "label-enforcer.fullname" . }}-manager-role'
+subjects:
+- kind: ServiceAccount
+  name: '{{ include "label-enforcer.serviceAccountName" . }}'
+  namespace: '{{ .Release.Namespace }}'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "label-enforcer.fullname" . }}-manager-rolebinding
+  labels:
+  {{- include "label-enforcer.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: '{{ include "label-enforcer.fullname" . }}-manager-role'
+subjects:
+- kind: ServiceAccount
+  name: '{{ include "label-enforcer.serviceAccountName" . }}'
+  namespace: '{{ .Release.Namespace }}'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "label-enforcer.fullname" . }}-controller-manager
+  labels:
+    control-plane: controller-manager
+  {{- include "label-enforcer.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.controllerManager.replicas }}
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+    {{- include "label-enforcer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+      {{- include "label-enforcer.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
+        command:
+        - /manager
+        env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: manager
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        - containerPort: 8081
+          name: healthz
+          protocol: TCP
+        resources: {{- toYaml .Values.controllerManager.manager.resources | nindent 10
+          }}
+      nodeSelector: {{- toYaml .Values.controllerManager.nodeSelector | nindent 8 }}
+      serviceAccountName: {{ include "label-enforcer.serviceAccountName" . }}
+      terminationGracePeriodSeconds: 10
+      tolerations: {{- toYaml .Values.controllerManager.tolerations | nindent 8 }}
+      topologySpreadConstraints: {{- toYaml .Values.controllerManager.topologySpreadConstraints
+        | nindent 8 }}

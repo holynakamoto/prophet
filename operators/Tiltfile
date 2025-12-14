@@ -1,81 +1,124 @@
-# Tiltfile for Prophet Operators - Live Development
+# Tiltfile for All Prophet Operators
 # Run with: tilt up
 # Access UI at: http://localhost:10350
+# 
+# Tilt is the SINGLE SOURCE OF TRUTH for operator builds and deployments.
+# - Watches Go source files
+# - Builds Docker images automatically (via Dockerfile)
+# - Loads images into kind cluster
+# - Deploys operators via manifests from clusters/
+# 
+# DO NOT run `go build` or `docker build` manually for operators.
+# Tilt handles the entire build → load → deploy cycle.
 
-# Configuration
-OPERATOR_NAME = 'anomaly-remediator'  # Change this or use Tilt args
-IMAGE_NAME = 'ghcr.io/prophet-aiops/prophet-' + OPERATOR_NAME
-IMAGE_TAG = 'dev'
+# List of all operators to build
+OPERATORS = [
+    'health-check',
+    'budget-guard',
+    'cost-alert',
+    'diagnostic-remediator',
+    'label-enforcer',
+]
 
-# Allow operator selection via Tilt args
-if ARGV.get('operator'):
-    OPERATOR_NAME = ARGV.get('operator')
-    IMAGE_NAME = 'ghcr.io/prophet-aiops/prophet-' + OPERATOR_NAME
+# Allow filtering via args: tilt up -- --operators=anomaly-remediator,diagnostic-remediator
+selected_operators = ARGV.get('operators', '').split(',')
+if selected_operators and selected_operators != ['']:
+    OPERATORS = [op.strip() for op in selected_operators if op.strip()]
 
-OPERATOR_DIR = 'operators/' + OPERATOR_NAME
+# Base image registry
+IMAGE_REGISTRY = 'ghcr.io/prophet-aiops'
+# Use 'latest' tag to match deployment manifests, or 'dev' for development
+IMAGE_TAG = 'latest'
 
-# Build operator image with live update support
-docker_build(
-    IMAGE_NAME + ':' + IMAGE_TAG,
-    OPERATOR_DIR,
-    dockerfile=OPERATOR_DIR + '/Dockerfile',
-    live_update=[
-        # Hot reload: sync compiled binary directly
-        sync(OPERATOR_DIR + '/bin/manager', '/manager'),
-        # Fallback: rebuild on source changes
-        fall_back_on([
-            OPERATOR_DIR + '/go.mod',
-            OPERATOR_DIR + '/go.sum',
-            OPERATOR_DIR + '/api/',
-            OPERATOR_DIR + '/controllers/',
-            OPERATOR_DIR + '/cmd/',
-        ]),
-    ],
-    ignore=[
-        OPERATOR_DIR + '/bin/',
-        OPERATOR_DIR + '/.git/',
-        OPERATOR_DIR + '/cover.out',
-    ]
-)
+# Helper function to setup each operator
+def setup_operator(operator_name):
+    """Setup a single operator: build image, deploy CRDs, deploy operator"""
+    # Paths are relative to operators/ directory where Tiltfile runs
+    operator_dir = operator_name
+    
+    # Check if operator exists
+    if not os.path.exists(operator_dir):
+        print('⚠️  Operator not found: ' + operator_name)
+        return
+    
+    # Check if Dockerfile exists
+    dockerfile_path = operator_dir + '/Dockerfile'
+    if not os.path.exists(dockerfile_path):
+        print('⚠️  Dockerfile not found for: ' + operator_name)
+        return
+    
+    image_name = IMAGE_REGISTRY + '/prophet-' + operator_name
+    
+    # Build Docker image
+    docker_build(
+        image_name + ':' + IMAGE_TAG,
+        operator_dir,
+        dockerfile=dockerfile_path,
+        live_update=[
+            # Hot reload: sync compiled binary directly
+            sync(operator_dir + '/bin/manager', '/manager'),
+            # Fallback: rebuild on source changes
+            fall_back_on([
+                operator_dir + '/go.mod',
+                operator_dir + '/go.sum',
+                operator_dir + '/api/',
+                operator_dir + '/controllers/',
+                operator_dir + '/cmd/',
+            ]),
+        ],
+        ignore=[
+            operator_dir + '/bin/',
+            operator_dir + '/.git/',
+            operator_dir + '/cover.out',
+        ],
+    )
+    
+    # Deploy CRDs (if config/crd exists)
+    crd_path = operator_dir + '/config/crd'
+    if os.path.exists(crd_path):
+        k8s_yaml(kustomize(crd_path))
+    
+    # Deploy operator from clusters/ manifest (single source of truth)
+    # This ensures Tilt uses the same manifests as production
+    cluster_manifest = '../clusters/common/aiops/operators/' + operator_name + '.yaml'
+    if os.path.exists(cluster_manifest):
+        k8s_yaml(local(cluster_manifest))
+    else:
+        # Fallback: try kustomize config/default
+        default_path = operator_dir + '/config/default'
+        if os.path.exists(default_path):
+            k8s_yaml(kustomize(default_path))
+        else:
+            # Fallback: try config/manager
+            manager_path = operator_dir + '/config/manager'
+            if os.path.exists(manager_path):
+                k8s_yaml(kustomize(manager_path))
+    
+    # Update image in deployment
+    resource_name = operator_name + '-controller-manager'
+    k8s_resource(
+        resource_name,
+        image=image_name + ':' + IMAGE_TAG,
+        port_forwards=['8080:8080', '8081:8081'],
+        resource_deps=[image_name + ':' + IMAGE_TAG],
+    )
+    
+    # Apply test CRs if available
+    samples_path = operator_dir + '/config/samples'
+    if os.path.exists(samples_path):
+        local_resource(
+            'apply-test-cr-' + operator_name,
+            cmd='kubectl apply -f ' + samples_path + ' 2>/dev/null || echo "No test CRs for ' + operator_name + '"',
+            deps=[samples_path],
+            allow_parallel=True,
+        )
+    
+    print('✅ Setup complete for: ' + operator_name)
 
-# Deploy CRDs first
-k8s_yaml(kustomize(OPERATOR_DIR + '/config/crd'))
+# Setup all operators
+for op in OPERATORS:
+    setup_operator(op)
 
-# Deploy operator with updated image
-k8s_yaml(kustomize(OPERATOR_DIR + '/config/default'))
-
-# Update image in kustomization
-k8s_resource(
-    OPERATOR_NAME + '-controller-manager',
-    image=IMAGE_NAME + ':' + IMAGE_TAG,
-    port_forwards='8080:8080',  # Metrics port
-    resource_deps=['docker_build'],
-)
-
-# Port-forward for debugging
-k8s_resource(
-    OPERATOR_NAME + '-controller-manager',
-    port_forwards=[
-        '8080:8080',  # Metrics
-        '8081:8081',  # Health/readiness
-    ],
-)
-
-# Local resource to apply test CRs
-local_resource(
-    'apply-test-cr',
-    cmd='kubectl apply -f ' + OPERATOR_DIR + '/config/samples/ 2>/dev/null || echo "No test CRs found"',
-    deps=[OPERATOR_DIR + '/config/samples/'],
-    allow_parallel=True,
-)
-
-# Watch for changes
-watch_file(OPERATOR_DIR + '/api/')
-watch_file(OPERATOR_DIR + '/controllers/')
-watch_file(OPERATOR_DIR + '/cmd/')
-
-# Print helpful info
-print('🚀 Tilt is running for operator: ' + OPERATOR_NAME)
+print('🚀 Tilt is running for ' + str(len(OPERATORS)) + ' operator(s)')
 print('📊 UI: http://localhost:10350')
-print('🔧 Change operator: tilt args --operator=<name>')
-
+print('🔧 Filter operators: tilt args --operators=health-check,diagnostic-remediator')

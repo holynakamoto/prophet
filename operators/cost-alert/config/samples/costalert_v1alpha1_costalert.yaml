@@ -1,0 +1,60 @@
+apiVersion: aiops.prophet.io/v1alpha1
+kind: CostAlert
+metadata:
+  name: cluster-cost-spike
+  namespace: default
+spec:
+  threshold:
+    type: percentage_increase
+    value: 50  # Alert if cost increases by 50% compared to previous period
+    currency: USD
+  scope: cluster
+  period: daily
+  checkIntervalSeconds: 3600
+  notify:
+    enabled: true
+    webhookUrl: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+  openCostEndpoint: "http://opencost.opencost.svc.cluster.local:9003"
+
+---
+# Example: Absolute cost threshold
+apiVersion: aiops.prophet.io/v1alpha1
+kind: CostAlert
+metadata:
+  name: namespace-daily-limit
+  namespace: production
+spec:
+  threshold:
+    type: absolute
+    value: 100.50  # Alert if daily cost exceeds $100.50
+    currency: USD
+  scope: namespace
+  namespace: production
+  period: daily
+  notify:
+    enabled: true
+    webhookUrl: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+
+---
+# Example: Workload-specific cost alert
+apiVersion: aiops.prophet.io/v1alpha1
+kind: CostAlert
+metadata:
+  name: expensive-workload-alert
+  namespace: default
+spec:
+  threshold:
+    type: percentage_increase
+    value: 100  # Alert if workload cost doubles
+    currency: USD
+  scope: workload
+  workloadRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: expensive-app
+    namespace: production
+  period: daily
+  alertRuleRef:
+    name: cost-alert-prometheus-rule
+    namespace: monitoring
+

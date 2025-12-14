@@ -1,0 +1,19 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json ./
+COPY pkg ./pkg
+COPY vue.config.js babel.config.js tsconfig.json .eslintrc.js .eslintignore ./
+
+# Install dependencies
+RUN npm install --legacy-peer-deps
+
+# Build the extension
+RUN npm run build
+
+# The built extension will be in /app/dist-pkg
+
+
+

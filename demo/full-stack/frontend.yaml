@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-app
+  namespace: default
+  labels:
+    app: frontend-app
+    tier: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-app
+  template:
+    metadata:
+      labels:
+        app: frontend-app
+        tier: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: nginx:1.21-alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: frontend-html
+          mountPath: /usr/share/nginx/html/index.html
+          subPath: index.html
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 20
+      volumes:
+      - name: frontend-html
+        configMap:
+          name: frontend-html
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-html
+  namespace: default
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Full Stack Demo</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+            .healthy { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+            .unknown { background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+        </style>
+    </head>
+    <body>
+        <h1>🚀 Full Stack Demo App</h1>
+        <div class="status healthy">
+            <h3>✅ Frontend: Healthy</h3>
+            <p>This static frontend is served by Nginx</p>
+        </div>
+        <div class="status unknown">
+            <h3>🔍 Backend Status: Checking...</h3>
+            <p>The health check operator monitors backend API health</p>
+        </div>
+        <div class="status unknown">
+            <h3>🗄️ Database Status: Checking...</h3>
+            <p>The health check operator monitors PostgreSQL connectivity</p>
+        </div>
+        <div class="status unknown">
+            <h3>🌐 Nginx Status: Checking...</h3>
+            <p>The health check operator monitors reverse proxy health</p>
+        </div>
+        <script>
+            // Simple status checker (would normally call backend API)
+            setTimeout(() => {
+                document.querySelectorAll('.unknown').forEach(el => {
+                    el.innerHTML = el.innerHTML.replace('Checking...', 'Monitored by Health Check Operator');
+                });
+            }, 2000);
+        </script>
+    </body>
+    </html>
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: default
+  labels:
+    app: frontend-app
+    tier: frontend
+spec:
+  selector:
+    app: frontend-app
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  type: ClusterIP

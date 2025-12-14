@@ -1,0 +1,385 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: costalerts.aiops.prophet.io
+spec:
+  group: aiops.prophet.io
+  names:
+    kind: CostAlert
+    listKind: CostAlertList
+    plural: costalerts
+    singular: costalert
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.scope
+      name: Scope
+      type: string
+    - jsonPath: '.spec.threshold.type + '': '' + .spec.threshold.value'
+      name: Threshold
+      type: string
+    - jsonPath: .status.currentCost
+      name: Current Cost
+      type: number
+    - jsonPath: .status.triggered
+      name: Triggered
+      type: boolean
+    - jsonPath: .status.lastTriggeredTime
+      name: Last Triggered
+      type: date
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CostAlert is the Schema for the costalerts API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CostAlertSpec defines the desired state of CostAlert
+            properties:
+              alertRuleRef:
+                description: AlertRuleRef references a PrometheusRule for alerting
+                properties:
+                  name:
+                    description: Name of the PrometheusRule
+                    type: string
+                  namespace:
+                    description: Namespace of the PrometheusRule
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+              checkIntervalSeconds:
+                default: 3600
+                description: |-
+                  CheckIntervalSeconds is how often to check costs (in seconds)
+                  Default: 3600 (1 hour)
+                format: int32
+                type: integer
+              namespace:
+                description: Namespace is the namespace to monitor (required if scope
+                  is "namespace")
+                type: string
+              notify:
+                description: Notify defines notification settings
+                properties:
+                  emailRecipients:
+                    description: EmailRecipients is a list of email addresses to notify
+                    items:
+                      type: string
+                    type: array
+                  enabled:
+                    description: Enabled enables notifications
+                    type: boolean
+                  webhookUrl:
+                    description: WebhookURL is the webhook URL for notifications
+                    type: string
+                type: object
+              openCostEndpoint:
+                description: |-
+                  OpenCostEndpoint is the OpenCost/Kubecost API endpoint
+                  Default: http://opencost.opencost.svc.cluster.local:9003
+                type: string
+              period:
+                default: daily
+                description: 'Period is the time period for cost calculation: "hourly",
+                  "daily", "weekly", "monthly"'
+                enum:
+                - hourly
+                - daily
+                - weekly
+                - monthly
+                type: string
+              scope:
+                description: 'Scope defines the scope of the alert: "workload", "namespace",
+                  or "cluster"'
+                enum:
+                - workload
+                - namespace
+                - cluster
+                type: string
+              threshold:
+                description: Threshold defines the cost threshold that triggers an
+                  alert
+                properties:
+                  baselinePeriod:
+                    description: |-
+                      BaselinePeriod is the period to compare against for percentage_increase
+                      Default: previous period (e.g., previous day for daily, previous month for monthly)
+                    type: string
+                  currency:
+                    default: USD
+                    description: |-
+                      Currency is the currency unit (USD, EUR, etc.)
+                      Default: USD
+                    type: string
+                  type:
+                    description: 'Type is the threshold type: "percentage_increase"
+                      or "absolute"'
+                    enum:
+                    - percentage_increase
+                    - absolute
+                    type: string
+                  value:
+                    description: |-
+                      Value is the threshold value
+                      For percentage_increase: percentage increase (e.g., 50 means 50% increase)
+                      For absolute: absolute cost amount (e.g., 100.50 means $100.50)
+                    type: number
+                required:
+                - type
+                - value
+                type: object
+              workloadRef:
+                description: WorkloadRef references a specific workload (required
+                  if scope is "workload")
+                properties:
+                  apiVersion:
+                    description: APIVersion of the workload (e.g., "apps/v1")
+                    type: string
+                  kind:
+                    description: Kind of the workload (e.g., "Deployment", "StatefulSet")
+                    type: string
+                  name:
+                    description: Name of the workload
+                    type: string
+                  namespace:
+                    description: Namespace of the workload
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                - namespace
+                type: object
+            required:
+            - scope
+            - threshold
+            type: object
+          status:
+            description: CostAlertStatus defines the observed state of CostAlert
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              currentCost:
+                description: CurrentCost is the current cost for the period
+                type: number
+              errorMessage:
+                description: ErrorMessage contains any error message from the last
+                  check
+                type: string
+              lastCheckTime:
+                description: LastCheckTime is when the cost was last checked
+                format: date-time
+                type: string
+              lastTriggeredTime:
+                description: LastTriggeredTime is when the alert was last triggered
+                format: date-time
+                type: string
+              previousCost:
+                description: PreviousCost is the previous period's cost (for percentage_increase
+                  comparison)
+                type: number
+              thresholdValue:
+                description: ThresholdValue is the threshold value that triggered
+                  the alert
+                type: number
+              triggerCount:
+                description: TriggerCount is the number of times the alert has been
+                  triggered
+                format: int32
+                type: integer
+              triggered:
+                description: Triggered indicates if the alert has been triggered
+                type: boolean
+            required:
+            - currentCost
+            - triggerCount
+            - triggered
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cost-alert-controller-manager
+  namespace: prophet-operators
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - costalerts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - costalerts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - costalerts/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cost-alert-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cost-alert-manager-role
+subjects:
+- kind: ServiceAccount
+  name: cost-alert-controller-manager
+  namespace: prophet-operators
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cost-alert-controller-manager
+  namespace: prophet-operators
+  labels:
+    app: cost-alert
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cost-alert
+  template:
+    metadata:
+      labels:
+        app: cost-alert
+    spec:
+      serviceAccountName: cost-alert-controller-manager
+      containers:
+      - command:
+        - /manager
+        args:
+        - --leader-elect
+        image: ghcr.io/prophet-aiops/prophet-cost-alert:latest
+        name: manager
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10

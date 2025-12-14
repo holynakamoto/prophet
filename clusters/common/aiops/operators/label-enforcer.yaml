@@ -1,0 +1,276 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: labelenforcers.aiops.prophet.io
+spec:
+  group: aiops.prophet.io
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              targetResource:
+                type: string
+                enum: ["pods", "deployments", "statefulsets", "daemonsets", "services", "configmaps", "secrets"]
+              namespace:
+                type: string
+              labelSelector:
+                type: object
+                additionalProperties:
+                  type: string
+              requiredLabels:
+                type: object
+                additionalProperties:
+                  type: string
+              requiredAnnotations:
+                type: object
+                additionalProperties:
+                  type: string
+              enforceExisting:
+                type: boolean
+                default: true
+          status:
+            type: object
+            properties:
+              correctedResources:
+                type: integer
+                format: int32
+              lastCorrected:
+                type: string
+                format: date-time
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+                    reason:
+                      type: string
+                    message:
+                      type: string
+    additionalPrinterColumns:
+    - name: Target
+      type: string
+      jsonPath: .spec.targetResource
+    - name: Namespace
+      type: string
+      jsonPath: .spec.namespace
+    - name: Corrected
+      type: integer
+      jsonPath: .status.correctedResources
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
+  scope: Namespaced
+  names:
+    plural: labelenforcers
+    singular: labelenforcer
+    kind: LabelEnforcer
+    shortNames:
+    - lenf
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: label-enforcer-controller-manager
+  namespace: prophet-operators
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: label-enforcer-manager-role
+  namespace: prophet-operators
+rules:
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - labelenforcers
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - labelenforcers/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - labelenforcers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: label-enforcer-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: label-enforcer-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: label-enforcer-metrics-reader
+subjects:
+- kind: ServiceAccount
+  name: label-enforcer-controller-manager
+  namespace: prophet-operators
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: label-enforcer-manager-rolebinding
+  namespace: prophet-operators
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: label-enforcer-manager-role
+subjects:
+- kind: ServiceAccount
+  name: label-enforcer-controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: label-enforcer-controller-manager
+  namespace: prophet-operators
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --leader-elect
+        command:
+        - /manager
+        image: ghcr.io/prophet-aiops/prophet-label-enforcer:latest
+        name: manager
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        - containerPort: 8081
+          name: healthz
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
+      serviceAccountName: label-enforcer-controller-manager
+      terminationGracePeriodSeconds: 10

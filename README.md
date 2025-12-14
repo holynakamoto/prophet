@@ -39,7 +39,7 @@ cd prophet/demo/remediation-chaos
 ./demo.sh
 ```
 
-See a crashing app get automatically detected and healed by the AnomalyRemediator operator.
+See a crashing app get automatically detected and healed by our operators.
 
 ### Key Stack
 
@@ -55,9 +55,84 @@ See a crashing app get automatically detected and healed by the AnomalyRemediato
 
 1. Clone and explore
 2. Try the quick demo above
-3. Deploy to your cluster using the provided overlays
+3. Deploy operators using Helm charts or GitOps overlays
+
+### Testing K8sGPT Integration
+
+See `aiops/diagnostics/K8SGPT-TESTING.md`.
+
+### UI: Headlamp (Prophet AIOps Console)
+
+Deploy Headlamp to browse Prophet CRDs and “trust-but-verify” self-healing actions:
+
+- `clusters/common/ui/headlamp/README.md`
 
 Great as a starter kit, learning resource, or foundation for production AIOps.
+
+---
+
+## This Repository
+
+This is an active development fork focused on:
+
+- **Custom Go operators** for self-healing automation (`operators/`)
+- **Multi-cloud Kustomize overlays** for AWS, GCP, Azure (`clusters/`)
+- **Chaos engineering experiments** with AI validation (`resilience/`, `demo/`)
+- **Rancher & Headlamp UI extensions** for K8sGPT diagnostics (`rancher-k8sgpt-extension/`, `headlamp-k8sgpt/`)
+
+See the operator-specific READMEs for current status and documentation.
+
+---
+
+## For Contributors
+
+**Quick Links:**
+- [Contributing Guide](./CONTRIBUTING.md) - Dev setup, PR guidelines
+- [Operator Reference](./operators/README.md) - How to build and run operators
+- [Cluster Overlays](./clusters/README.md) - GitOps structure and deployment
+
+**Tech Stack:**
+- Go 1.22+ (operators, controller-runtime)
+- Kubebuilder v3.x (CRD scaffolding)
+- Kustomize + ArgoCD (GitOps)
+- Tilt (local operator development)
+
+**Local Development:**
+```bash
+# Run all operators locally (requires kind cluster)
+make dev-up
+
+# Run specific operator
+cd operators/label-enforcer && make run
+
+# Run demo
+cd demo/remediation-chaos && ./demo.sh
+```
+
+**Helm Deployment:**
+```bash
+# Add Helm repository (if using hosted charts)
+# helm repo add prophet https://charts.prophet-aiops.dev
+# helm repo update
+
+# Install operators via Helm
+helm install prophet-label-enforcer operators/label-enforcer/helm/label-enforcer
+helm install prophet-health-check operators/health-check/helm/health-check
+
+# Or use GitOps with ArgoCD/Flux pointing to chart directories
+```
+
+---
+
+## Design Documents
+
+| Document | Description |
+|----------|-------------|
+| [PRD-ALIGNMENT.md](./PRD-ALIGNMENT.md) | Requirements mapping |
+| [AIOPS-UPGRADE.md](./AIOPS-UPGRADE.md) | V5 upgrade path |
+| [V6-AGENTIC-AUTONOMY.md](./V6-AGENTIC-AUTONOMY.md) | Agentic architecture |
+
+---
 
 GitHub: `https://github.com/prophet-aiops/prophet`
 

@@ -1,0 +1,20 @@
+apiVersion: aiops.prophet.io/v1alpha1
+kind: LabelEnforcer
+metadata:
+  name: security-label-enforcer
+  namespace: default
+spec:
+  targetResource: pods
+  namespace: default
+  # Optional: only enforce on pods with this label
+  labelSelector:
+    app.kubernetes.io/name: my-app
+  # Required labels that will be added if missing
+  requiredLabels:
+    security.alpha.kubernetes.io/scc: restricted
+    pod-security.kubernetes.io/enforce: restricted
+  # Required annotations that will be added if missing
+  requiredAnnotations:
+    security.alpha.kubernetes.io/validate: "true"
+    description: "Enforced by LabelEnforcer"
+  enforceExisting: true

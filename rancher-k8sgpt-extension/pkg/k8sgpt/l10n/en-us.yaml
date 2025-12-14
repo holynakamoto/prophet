@@ -1,0 +1,44 @@
+k8sgpt:
+  nav:
+    diagnostics: "K8sGPT Diagnostics"
+  
+  title: "K8sGPT Diagnostics"
+  subtitle: "AI-powered Kubernetes troubleshooting results"
+  
+  list:
+    title: "K8sGPT Analysis Results"
+    empty: "No K8sGPT results found"
+    noCrd: "K8sGPT Operator not installed"
+    noCrdDetail: "Install the K8sGPT Operator to enable AI-powered diagnostics."
+    installLink: "Learn how to install K8sGPT"
+  
+  table:
+    name: "Name"
+    namespace: "Namespace"
+    kind: "Resource Kind"
+    severity: "Severity"
+    involvedObject: "Involved Object"
+    explanation: "Explanation"
+    age: "Age"
+  
+  detail:
+    title: "K8sGPT Result"
+    explanation: "AI Explanation"
+    errors: "Detected Issues"
+    details: "Details"
+    involvedResource: "Involved Resource"
+    viewResource: "View Resource"
+    parentObject: "Parent Object"
+  
+  severity:
+    error: "Error"
+    warning: "Warning"
+    info: "Info"
+  
+  filters:
+    all: "All Severities"
+    error: "Errors Only"
+    warning: "Warnings Only"
+    info: "Info Only"
+    searchPlaceholder: "Search results..."
+

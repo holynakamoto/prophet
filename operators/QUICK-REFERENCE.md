@@ -141,10 +141,27 @@ kubectl apply -f config/samples/
 tilt down
 ```
 
+### Helm Deployment
+
+```bash
+# Lint chart
+make helm-lint
+
+# Package chart
+make helm-package
+
+# Install operator
+make helm-install
+
+# Show rendered templates
+make helm-template
+```
+
 ## See Also
 
 - [LOCAL-CI.md](./LOCAL-CI.md) - Detailed CI setup
 - [ENHANCED-CI.md](./ENHANCED-CI.md) - Image building & scanning
 - [TILT-SETUP.md](./TILT-SETUP.md) - Live development guide
+- [HELM-DEPLOYMENT.md](./HELM-DEPLOYMENT.md) - Helm deployment workflow
 - [README.md](./README.md) - General documentation
 

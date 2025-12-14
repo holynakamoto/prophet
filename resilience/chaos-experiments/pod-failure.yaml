@@ -1,3 +1,31 @@
+# Pod Failure Chaos Experiment
+#
+# PURPOSE: Validate AnomalyRemediator detects and recovers crashed pods
+#
+# PRECONDITIONS:
+#   - Chaos Mesh installed (kubectl apply -f https://...)
+#   - AnomalyRemediator operator running
+#   - Target deployment with label app=backend in default namespace
+#   - AnomalyAction CR configured for default namespace
+#
+# EXPECTED SIGNALS:
+#   - prophet_anomaly_detected_total metric increments
+#   - AnomalyAction status cycles: Detected → Resolved
+#   - Pod restart count increases
+#
+# PASS CRITERIA:
+#   - Anomaly detected within 30s
+#   - Pod auto-restarted (no manual intervention)
+#   - AnomalyAction phase=Resolved
+#
+# FAIL CRITERIA:
+#   - No detection after 60s
+#   - Pod stuck in Failed/CrashLoopBackOff >2min
+#
+# CLEANUP:
+#   kubectl delete -f resilience/chaos-experiments/pod-failure.yaml
+#
+---
 apiVersion: chaos-mesh.org/v1alpha1
 kind: PodChaos
 metadata:
@@ -6,6 +34,7 @@ metadata:
   labels:
     experiment-type: pod-failure
     ai-validated: "true"
+    prophet.io/validates: anomaly-remediator
 spec:
   action: pod-failure
   mode: one

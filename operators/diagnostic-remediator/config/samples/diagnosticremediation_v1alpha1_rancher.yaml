@@ -1,0 +1,56 @@
+apiVersion: aiops.prophet.io/v1alpha1
+kind: DiagnosticRemediation
+metadata:
+  name: rancher-diagnostic-remediation
+  namespace: cattle-system
+spec:
+  # Target Rancher deployment
+  target:
+    namespace: cattle-system
+    kind: Deployment
+    name: rancher
+  
+  # What to check
+  diagnostics:
+    resources: true                    # Check CPU/memory limits
+    environment: true                  # Check environment variables
+    configReferences: true             # Check ConfigMap/Secret references
+    imagePull: true                    # Check image pull policy
+    serviceDependencies:               # Check service dependencies
+      - name: rancher
+        namespace: cattle-system
+        port: 80
+        protocol: HTTP
+        path: /healthz
+  
+  # What to fix automatically
+  remediation:
+    fixResources: true                 # Add default resources if missing
+    fixEnvironment: true               # Add required env vars
+    fixImagePullPolicy: true           # Fix image pull policy
+    restartOnConfigChange: true         # Restart pods after fixes
+    createMissingConfigs: false        # Don't auto-create ConfigMaps/Secrets (too risky)
+    
+    # Default resources to apply if missing
+    defaultResources:
+      cpuRequest: "100m"
+      cpuLimit: "1000m"
+      memoryRequest: "512Mi"
+      memoryLimit: "2Gi"
+    
+    # Required environment variables
+    requiredEnvVars:
+      - name: CATTLE_SERVER_URL
+        value: "https://rancher.localhost"
+      - name: CATTLE_NAMESPACE
+        value: "cattle-system"
+    
+    # Default image pull policy
+    defaultImagePullPolicy: "IfNotPresent"
+  
+  # Auto-fix enabled
+  autoFix: true
+  
+  # Cooldown between remediations
+  cooldownSeconds: 300
+

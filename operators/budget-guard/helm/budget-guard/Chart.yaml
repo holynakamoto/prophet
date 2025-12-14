@@ -1,0 +1,15 @@
+apiVersion: v2
+name: budget-guard
+description: A Helm chart for the budget guard operator
+type: application
+version: 0.1.0
+appVersion: "v0.1.0"
+keywords:
+  - kubernetes
+  - operator
+  - budgetguard
+home: https://github.com/prophet-aiops/prophet
+sources:
+  - https://github.com/prophet-aiops/prophet
+maintainers:
+  - name: Prophet Team

@@ -1,0 +1,259 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: headlamp-plugin-prophet
+  namespace: headlamp
+  labels:
+    app.kubernetes.io/name: headlamp
+    app.kubernetes.io/part-of: prophet
+data:
+  package.json: |
+    {
+      "name": "prophet",
+      "version": "0.1.0",
+      "description": "Prophet AIOps console plugin for Headlamp",
+      "main": "main.js"
+    }
+  main.js: |
+    (function () {
+      // Headlamp provides plugin APIs via the global `pluginLib`.
+      // We keep this plugin intentionally dependency-free (no build step).
+      var lib = (typeof pluginLib !== 'undefined') ? pluginLib : (typeof globalThis !== 'undefined' ? globalThis.pluginLib : undefined);
+      if (!lib) {
+        return;
+      }
+    
+      var React = lib.React;
+      var Mui = lib.MuiMaterial || {};
+    
+      function getClusterBasePath() {
+        try {
+          var path = (typeof window !== 'undefined' && window.location && window.location.pathname) ? window.location.pathname : '';
+          var m = path.match(/^\/c\/([^/]+)/);
+          return m ? ("/c/" + m[1]) : '';
+        } catch (e) {
+          return '';
+        }
+      }
+    
+      function ProphetPage() {
+        var base = getClusterBasePath();
+        
+        // Only render if we're in a cluster context
+        if (!base || base === '') {
+          return React.createElement(
+            'div',
+            { style: { padding: 16 } },
+            React.createElement('p', null, 'Please select a cluster to view Prophet AIOps.')
+          );
+        }
+        
+        var Box = Mui.Box || 'div';
+        var Stack = Mui.Stack || 'div';
+        var Card = Mui.Card || 'div';
+        var CardContent = Mui.CardContent || 'div';
+        var Typography = Mui.Typography || 'div';
+        var Button = Mui.Button || 'a';
+    
+        var crdLinks = [
+          {
+            title: 'AnomalyRemediator (AnomalyActions)',
+            desc: 'Self-healing policies + status, remediation counts, (optional) K8sGPT analysis output.',
+            href: base + '/customresources/anomalyactions.aiops.prophet.io',
+          },
+          {
+            title: 'AutonomousAgent (AutonomousActions)',
+            desc: 'Agent workflows and decisions (diagnose → decide → act) driven by MCP tools.',
+            href: base + '/customresources/autonomousactions.aiops.prophet.io',
+          },
+          {
+            title: 'PredictiveScaler (PredictiveScales)',
+            desc: 'Forecast-driven scaling resources (if deployed).',
+            href: base + '/customresources/predictivescales.aiops.prophet.io',
+          },
+          {
+            title: 'SLOEnforcer (SLOViolations)',
+            desc: 'SLO / error budget policy resources (if deployed).',
+            href: base + '/customresources/sloviolations.aiops.prophet.io',
+          },
+        ];
+    
+        var opsLinks = [
+          {
+            title: 'K8sGPT Diagnostics',
+            desc: 'AI-powered cluster diagnostics - trigger analysis and view results.',
+            href: base + '/prophet/k8sgpt',
+          },
+          {
+            title: 'K8sGPT Operator (pods/logs)',
+            desc: 'View K8sGPT server/operator logs and exec for independent diagnostics.',
+            href: base + '/namespaces/k8sgpt/pods',
+          },
+          {
+            title: 'Prophet Operators namespace',
+            desc: 'See the Prophet controller pods (autonomous-agent, anomaly-remediator, etc.).',
+            href: base + '/namespaces/prophet-operators/pods',
+          },
+        ];
+    
+        function renderCard(item) {
+          return React.createElement(
+            Card,
+            { key: item.href, variant: 'outlined', style: { flex: '1 1 380px' } },
+            React.createElement(
+              CardContent,
+              null,
+              React.createElement(Typography, { variant: 'h6', style: { marginBottom: 6 } }, item.title),
+              React.createElement(Typography, { variant: 'body2', color: 'text.secondary', style: { marginBottom: 12 } }, item.desc),
+              React.createElement(
+                Button,
+                { variant: 'contained', size: 'small', href: item.href, style: { textDecoration: 'none' } },
+                'Open'
+              )
+            )
+          );
+        }
+    
+        return React.createElement(
+          Box,
+          { style: { padding: 16, maxWidth: 1200 } },
+          React.createElement(Typography, { variant: 'h4', style: { marginBottom: 8 } }, 'Prophet AIOps Console'),
+          React.createElement(
+            Typography,
+            { variant: 'body1', color: 'text.secondary', style: { marginBottom: 18 } },
+            'This page is a Prophet-specific starting point inside Headlamp: quick access to our CRDs (self-healing + agentic autonomy) and independent diagnostics.'
+          ),
+          React.createElement(Typography, { variant: 'h5', style: { marginBottom: 10 } }, 'Prophet CRDs'),
+          React.createElement(
+            Stack,
+            { direction: 'row', spacing: 2, useFlexGap: true, flexWrap: 'wrap' },
+            crdLinks.map(renderCard)
+          ),
+          React.createElement('div', { style: { height: 18 } }),
+          React.createElement(Typography, { variant: 'h5', style: { marginBottom: 10 } }, 'Trust-but-verify'),
+          React.createElement(
+            Stack,
+            { direction: 'row', spacing: 2, useFlexGap: true, flexWrap: 'wrap' },
+            opsLinks.map(renderCard)
+          ),
+          React.createElement('div', { style: { height: 18 } }),
+          React.createElement(
+            Typography,
+            { variant: 'body2', color: 'text.secondary' },
+            "Tip: For K8sGPT output attached to self-healing, open an AnomalyAction and check .status.k8sgptAnalysis (when enabled)."
+          )
+        );
+      }
+    
+      // K8sGPT Diagnostics Page - Simplified to avoid React hooks compatibility issues
+      function K8sGPTPage() {
+        var base = getClusterBasePath();
+        
+        // Only render if we're in a cluster context
+        if (!base || base === '') {
+          return React.createElement(
+            'div',
+            { style: { padding: 16 } },
+            React.createElement('p', null, 'Please select a cluster to use K8sGPT diagnostics.')
+          );
+        }
+        
+        var Box = Mui.Box || 'div';
+        var Typography = Mui.Typography || 'div';
+        var Card = Mui.Card || 'div';
+        var CardContent = Mui.CardContent || 'div';
+        var Button = Mui.Button || 'a';
+        var Paper = Mui.Paper || 'div';
+        var Alert = Mui.Alert || 'div';
+    
+        return React.createElement(
+          Box,
+          { style: { padding: 16, maxWidth: 1200 } },
+          React.createElement(Typography, { variant: 'h4', style: { marginBottom: 8 } }, 'K8sGPT AI Diagnostics'),
+          React.createElement(
+            Typography,
+            { variant: 'body1', color: 'text.secondary', style: { marginBottom: 24 } },
+            'View K8sGPT analysis results from AnomalyActions and trigger diagnostics.'
+          ),
+          React.createElement(
+            Card,
+            { variant: 'outlined', style: { marginBottom: 24 } },
+            React.createElement(
+              CardContent,
+              null,
+              React.createElement(Typography, { variant: 'h6', style: { marginBottom: 16 } }, 'K8sGPT Analysis'),
+              React.createElement(
+                Typography,
+                { variant: 'body2', style: { marginBottom: 16 } },
+                'To view K8sGPT output:'
+              ),
+              React.createElement(
+                'ul',
+                { style: { paddingLeft: 20 } },
+                React.createElement('li', null, 'Open an AnomalyAction resource'),
+                React.createElement('li', null, 'Check the .status.k8sgptAnalysis field'),
+                React.createElement('li', null, 'Or exec into K8sGPT operator: kubectl exec -n k8sgpt deployment/k8sgpt-operator -- k8sgpt analyze --explain')
+              ),
+              React.createElement(
+                Button,
+                {
+                  variant: 'contained',
+                  href: base + '/customresources/anomalyactions.aiops.prophet.io',
+                  style: { marginTop: 16, textDecoration: 'none' }
+                },
+                'View AnomalyActions with K8sGPT Analysis'
+              )
+            )
+          ),
+          React.createElement(
+            Alert,
+            { severity: 'info', style: { marginTop: 16 } },
+            'K8sGPT analysis is automatically attached to AnomalyAction resources when k8sgpt.enabled is true. Check the status field for AI-powered diagnostics.'
+          )
+        );
+      }
+    
+      // Register the page routes + sidebar navigation.
+      try {
+        // Try registering routes first
+        if (typeof lib.registerRoute === 'function') {
+          lib.registerRoute({
+            path: '/prophet',
+            exact: true,
+            sidebar: 'Prophet AIOps',
+            icon: 'mdi:robot',
+            component: ProphetPage,
+          });
+          lib.registerRoute({
+            path: '/prophet/k8sgpt',
+            exact: true,
+            component: K8sGPTPage,
+          });
+        }
+        
+        // Also try the sidebar registration separately
+        if (typeof lib.registerSidebarItem === 'function') {
+          try {
+            // Try object format first
+            lib.registerSidebarItem({
+              parent: null,
+              name: 'prophet',
+              label: 'Prophet AIOps',
+              url: '/prophet',
+              icon: 'mdi:robot',
+            });
+          } catch (e1) {
+            // Fallback to function call format
+            try {
+              lib.registerSidebarItem(null, 'prophet', 'Prophet AIOps', '/prophet', { icon: 'mdi:robot' });
+            } catch (e2) {
+              console.warn('Failed to register sidebar item:', e2);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Plugin registration error:', e);
+      }
+    })();
+
+

@@ -1,0 +1,159 @@
+{{ if .Values.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "health-check.serviceAccountName" . }}
+  labels:
+  {{- include "health-check.labels" . | nindent 4 }}
+  {{- with .Values.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "health-check.fullname" . }}-manager-role
+  labels:
+  {{- include "health-check.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - anomalyactions
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - healthchecks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - healthchecks/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - healthchecks/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "health-check.fullname" . }}-manager-rolebinding
+  labels:
+  {{- include "health-check.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: '{{ include "health-check.fullname" . }}-manager-role'
+subjects:
+- kind: ServiceAccount
+  name: '{{ include "health-check.serviceAccountName" . }}'
+  namespace: '{{ .Release.Namespace }}'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "health-check.fullname" . }}-controller-manager
+  labels:
+    app: health-check
+  {{- include "health-check.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.controllerManager.replicas }}
+  selector:
+    matchLabels:
+      app: health-check
+    {{- include "health-check.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: health-check
+      {{- include "health-check.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
+        command:
+        - /manager
+        env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources: {{- toYaml .Values.controllerManager.manager.resources | nindent 10
+          }}
+      nodeSelector: {{- toYaml .Values.controllerManager.nodeSelector | nindent 8 }}
+      serviceAccountName: {{ include "health-check.serviceAccountName" . }}
+      tolerations: {{- toYaml .Values.controllerManager.tolerations | nindent 8 }}
+      topologySpreadConstraints: {{- toYaml .Values.controllerManager.topologySpreadConstraints
+        | nindent 8 }}

@@ -1,0 +1,14 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: diagnostic-remediator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: diagnostic-remediator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: diagnostic-remediator-controller-manager
+  namespace: prophet-operators
+

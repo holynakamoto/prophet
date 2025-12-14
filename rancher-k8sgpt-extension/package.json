@@ -1,0 +1,52 @@
+{
+  "name": "k8sgpt",
+  "version": "1.0.0",
+  "description": "Rancher UI Extension for K8sGPT Diagnostics - View AI-powered Kubernetes troubleshooting results",
+  "repository": "https://github.com/prophet-ai/rancher-k8sgpt-extension",
+  "license": "Apache-2.0",
+  "author": "Prophet AI",
+  "private": false,
+  "scripts": {
+    "build": "NODE_OPTIONS=--openssl-legacy-provider ./node_modules/@rancher/shell/scripts/build-pkg.sh k8sgpt",
+    "serve": "./node_modules/.bin/vue-cli-service serve",
+    "serve-pkgs": "NODE_OPTIONS=--openssl-legacy-provider ./node_modules/@rancher/shell/scripts/serve-pkgs",
+    "serve-dev": "node serve-dev.js",
+    "clean": "rm -rf dist-pkg dist pkg/k8sgpt/dist",
+    "dev": "NODE_ENV=dev NODE_OPTIONS=--openssl-legacy-provider ./node_modules/.bin/vue-cli-service serve"
+  },
+  "files": [
+    "dist-pkg",
+    "pkg/k8sgpt"
+  ],
+  "rancher": {
+    "annotations": {
+      "catalog.cattle.io/display-name": "K8sGPT Diagnostics",
+      "catalog.cattle.io/os": "linux",
+      "catalog.cattle.io/rancher-version": ">=2.9.0",
+      "catalog.cattle.io/ui-extensions-version": ">=3.0.0"
+    }
+  },
+  "dependencies": {
+    "@rancher/shell": "2.0.3",
+    "@rancher/components": "0.2.1-alpha.0",
+    "core-js": "3.25.3"
+  },
+  "devDependencies": {
+    "@babel/plugin-proposal-class-properties": "7.18.6",
+    "@babel/plugin-proposal-private-property-in-object": "7.14.5",
+    "@vue/cli-plugin-babel": "4.5.18",
+    "@vue/cli-plugin-typescript": "4.5.18",
+    "@vue/cli-service": "4.5.18",
+    "css-loader": "6.7.3",
+    "sass": "1.32.12",
+    "sass-loader": "10.2.0",
+    "typescript": "4.5.5",
+    "vue": "2.7.14",
+    "vue-loader": "15.9.8",
+    "vue-template-compiler": "2.7.14",
+    "webpack": "4.46.0"
+  },
+  "peerDependencies": {
+    "@rancher/shell": ">=2.0.0"
+  }
+}

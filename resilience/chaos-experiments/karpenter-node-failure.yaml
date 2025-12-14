@@ -1,3 +1,33 @@
+# Karpenter Node Failure Chaos Experiment
+#
+# PURPOSE: Validate Karpenter automatically replaces failed nodes
+#
+# PRECONDITIONS:
+#   - Chaos Mesh installed with NodeChaos CRD
+#   - Karpenter installed and configured
+#   - At least 2 nodes in cluster (to avoid total outage)
+#   - Workloads have PodDisruptionBudgets
+#   - NodePool named "default" exists
+#
+# EXPECTED SIGNALS:
+#   - karpenter_nodes_created_total metric increments
+#   - Node count temporarily decreases, then recovers
+#   - Pods reschedule to replacement node
+#
+# PASS CRITERIA:
+#   - New node provisioned within 2 minutes
+#   - All pods rescheduled (0 Pending after recovery)
+#   - 95th percentile provisioning time < 60s
+#
+# FAIL CRITERIA:
+#   - Node not replaced within 5 minutes
+#   - Pods stuck in Pending state
+#   - Karpenter logs show errors
+#
+# CLEANUP:
+#   kubectl delete -f resilience/chaos-experiments/karpenter-node-failure.yaml
+#
+---
 apiVersion: chaos-mesh.org/v1alpha1
 kind: NodeChaos
 metadata:
@@ -7,6 +37,7 @@ metadata:
     experiment-type: node-failure
     ai-validated: "true"
     karpenter: "true"
+    prophet.io/validates: karpenter-autoscaling
 spec:
   action: node-restart
   mode: one

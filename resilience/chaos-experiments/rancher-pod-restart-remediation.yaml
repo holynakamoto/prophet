@@ -1,0 +1,74 @@
+# Rancher Pod Restart Storm → Automatic Remediation Test
+#
+# PURPOSE: Validate AnomalyRemediator detects and automatically remediates
+#          pods with excessive restart counts (restart storms)
+#
+# PRECONDITIONS:
+#   - AnomalyRemediator operator deployed and running
+#   - Rancher deployed in cattle-system namespace
+#   - AnomalyAction CRD available
+#
+# FAILURE INJECTION:
+#   This test uses an existing failing pod (Rancher with 17+ restarts)
+#   Alternatively, you can inject failure via:
+#   - kubectl delete pod <rancher-pod> repeatedly
+#   - Or use Chaos Mesh PodChaos to cause restarts
+#
+# EXPECTED SIGNALS:
+#   - AnomalyAction status.phase cycles: Pending → Detected → Resolved
+#   - AnomalyAction status.remediationCount increments
+#   - AnomalyAction status.lastRemediated timestamp updates
+#   - Old pod enters Terminating state
+#   - New pod created by ReplicaSet
+#   - prophet_remediation_executed_total metric increments
+#
+# PASS CRITERIA:
+#   ✅ Anomaly detected within 30s of pod restart count > 3
+#   ✅ Pod automatically restarted (old pod Terminating, new pod Created)
+#   ✅ AnomalyAction status.remediationCount > 0
+#   ✅ AnomalyAction status.phase = Resolved
+#   ✅ Remediation occurs within cooldown period (60s)
+#
+# FAIL CRITERIA:
+#   ❌ No detection after 60s
+#   ❌ Pod not restarted after 2 minutes
+#   ❌ remediationCount remains 0
+#   ❌ Operator logs show errors
+#
+# CLEANUP:
+#   kubectl delete anomalyaction rancher-pod-remediation -n cattle-system
+#
+---
+apiVersion: aiops.prophet.io/v1alpha1
+kind: AnomalyAction
+metadata:
+  name: rancher-pod-remediation
+  namespace: cattle-system
+  labels:
+    prophet.io/validates: anomaly-remediator
+    prophet.io/test-type: restart-storm
+spec:
+  # Detection source: pod status (checks restart count, phase, container status)
+  source: pod-status
+  metric: kube_pod_status_phase
+  threshold: "restartCount > 3 OR phase != Running"
+  
+  remediation:
+    type: restart              # Delete pod (ReplicaSet will recreate)
+    cooldownSeconds: 60        # Minimum 60s between remediations
+    requireApproval: false      # Auto-remediate without human approval
+  
+  target:
+    namespace: cattle-system
+    labels:
+      app: rancher             # Matches Rancher deployment pods
+    resourceType: Pod
+  
+  # Optional: Enable K8sGPT diagnostics (if installed)
+  k8sGPT:
+    enabled: false
+    endpoint: http://k8sgpt-operator.k8sgpt.svc.cluster.local:8080
+  
+  # Optional: Webhook notifications
+  webhookUrl: ""
+

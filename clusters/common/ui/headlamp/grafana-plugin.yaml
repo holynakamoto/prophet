@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: headlamp-plugin-grafana
+  namespace: headlamp
+  labels:
+    app.kubernetes.io/name: headlamp
+    app.kubernetes.io/part-of: prophet
+data:
+  package.json: |
+    {
+      "name": "grafana",
+      "version": "0.1.0",
+      "description": "Grafana integration plugin for Headlamp",
+      "main": "main.js"
+    }
+  main.js: |
+    (function() {
+      'use strict';
+      
+      var lib = (typeof pluginLib !== 'undefined') ? pluginLib : 
+                (typeof globalThis !== 'undefined' && globalThis.pluginLib) ? globalThis.pluginLib : 
+                undefined;
+      
+      if (!lib || !lib.React) {
+        console.warn('Grafana plugin: pluginLib or React not found');
+        return;
+      }
+      
+      var React = lib.React;
+      var Mui = lib.MuiMaterial || {};
+      
+      function GrafanaPage() {
+        var Box = Mui.Box || 'div';
+        var Typography = Mui.Typography || 'div';
+        var Card = Mui.Card || 'div';
+        var CardContent = Mui.CardContent || 'div';
+        var Button = Mui.Button || 'a';
+        
+        function getClusterBasePath() {
+          try {
+            var path = window?.location?.pathname || '';
+            var m = path.match(/^\/c\/([^/]+)/);
+            return m ? ("/c/" + m[1]) : '';
+          } catch (e) {
+            return '';
+          }
+        }
+        
+        var base = getClusterBasePath();
+        var grafanaUrl = 'http://grafana.monitoring.svc.cluster.local:3000';
+        
+        return React.createElement(Box, { style: { padding: 16, maxWidth: 1200 } },
+          React.createElement(Typography, { variant: 'h4', style: { marginBottom: 8 } }, 'Grafana Dashboards'),
+          React.createElement(Typography, { variant: 'body1', color: 'text.secondary', style: { marginBottom: 24 } },
+            'Access Grafana dashboards for Prophet AIOps monitoring and ML forecasts.'
+          ),
+          React.createElement(Card, { variant: 'outlined', style: { marginBottom: 24 } },
+            React.createElement(CardContent, null,
+              React.createElement(Typography, { variant: 'h6', style: { marginBottom: 16 } }, 'Grafana Access'),
+              React.createElement(Typography, { variant: 'body2', style: { marginBottom: 16 } }, 'Grafana URL: ' + grafanaUrl),
+              React.createElement(Button, {
+                variant: 'contained',
+                href: grafanaUrl,
+                target: '_blank',
+                style: { marginRight: 8, textDecoration: 'none' }
+              }, 'Open Grafana'),
+              base && React.createElement(Button, {
+                variant: 'outlined',
+                href: base + '/namespaces/monitoring/services/grafana',
+                style: { textDecoration: 'none' }
+              }, 'View Grafana Service')
+            )
+          ),
+          React.createElement(Card, { variant: 'outlined' },
+            React.createElement(CardContent, null,
+              React.createElement(Typography, { variant: 'h6', style: { marginBottom: 16 } }, 'Prophet Dashboards'),
+              React.createElement('ul', { style: { paddingLeft: 20 } },
+                React.createElement('li', null, 'ML Forecasts - Predictive scaling forecasts'),
+                React.createElement('li', null, 'Anomaly Detection - Real-time anomaly monitoring'),
+                React.createElement('li', null, 'SLO Tracking - Error budget burn-down'),
+                React.createElement('li', null, 'Remediation Timeline - Self-healing actions')
+              )
+            )
+          )
+        );
+      }
+      
+      try {
+        if (lib.registerRoute) {
+          lib.registerRoute({
+            path: '/grafana',
+            exact: true,
+            component: GrafanaPage
+          });
+        }
+        
+        if (lib.registerSidebarItem) {
+          lib.registerSidebarItem({
+            parent: null,
+            name: 'grafana',
+            label: 'Grafana',
+            url: '/grafana',
+            icon: 'mdi:chart-line'
+          });
+        }
+      } catch (e) {
+        console.error('Grafana plugin registration error:', e);
+      }
+    })();
+

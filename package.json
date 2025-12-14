@@ -1,0 +1,25 @@
+{
+  "name": "prophet",
+  "version": "0.1.0",
+  "private": false,
+  "engines": {
+    "node": ">=12"
+  },
+  "dependencies": {
+    "@rancher/shell": "^2.0.1",
+    "core-js": "3.21.1",
+    "css-loader": "6.7.3",
+    "@types/lodash": "4.14.184",
+    "@rancher/components": "0.2.1-alpha.0"
+  },
+  "resolutions": {
+    "**/webpack": "4",
+    "@types/node": "^16",
+    "glob": "7.2.3"
+  },
+  "scripts": {
+    "dev": "NODE_ENV=dev ./node_modules/.bin/vue-cli-service serve",
+    "build": "./node_modules/.bin/vue-cli-service build",
+    "clean": "./node_modules/@rancher/shell/scripts/clean"
+  }
+}

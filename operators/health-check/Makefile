@@ -99,3 +99,24 @@ controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessar
 $(CONTROLLER_GEN): $(LOCALBIN)
 	test -s $(LOCALBIN)/controller-gen || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 
+# Helm targets
+.PHONY: helm-lint
+helm-lint: ## Lint the Helm chart
+	helm lint helm/health-check
+
+.PHONY: helm-package
+helm-package: ## Package the Helm chart
+	helm package helm/health-check
+
+.PHONY: helm-template
+helm-template: ## Show the Helm templates
+	helm template health-check helm/health-check
+
+.PHONY: helm-install
+helm-install: ## Install the Helm chart
+	helm upgrade --install health-check helm/health-check
+
+.PHONY: helm-uninstall
+helm-uninstall: ## Uninstall the Helm chart
+	helm uninstall health-check
+

@@ -1,0 +1,41 @@
+apiVersion: aiops.prophet.io/v1alpha1
+kind: BudgetGuard
+metadata:
+  name: production-budget
+spec:
+  budget:
+    amount: 1000
+    currency: USD
+  scope: cluster
+  period: monthly
+  refreshIntervalSeconds: 300
+  actionsOnExceed:
+    throttleScaling: true
+    evictLowPriorityWorkloads: true
+    blockNewResources: false
+    notify:
+      enabled: true
+      webhookUrl: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+      emailRecipients:
+        - "finops@example.com"
+  openCostEndpoint: "http://opencost.opencost.svc.cluster.local:9003"
+
+---
+# Example: Namespace-scoped budget
+apiVersion: aiops.prophet.io/v1alpha1
+kind: BudgetGuard
+metadata:
+  name: dev-namespace-budget
+spec:
+  budget:
+    amount: 500
+    currency: USD
+  scope: namespace
+  namespace: development
+  period: monthly
+  actionsOnExceed:
+    throttleScaling: true
+    notify:
+      enabled: true
+      webhookUrl: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+

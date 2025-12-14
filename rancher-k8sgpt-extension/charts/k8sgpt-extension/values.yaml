@@ -1,0 +1,24 @@
+# K8sGPT Extension for Rancher
+# Default values
+
+# Extension configuration
+plugin:
+  name: k8sgpt
+  version: "1.0.0"
+  enabled: true
+
+# Image configuration (for container-based extensions)
+image:
+  repository: ghcr.io/prophet-ai/rancher-k8sgpt-extension
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+# Resources
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+

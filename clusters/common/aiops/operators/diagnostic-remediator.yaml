@@ -1,0 +1,242 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prophet-operators
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: diagnosticremediations.aiops.prophet.io
+spec:
+  group: aiops.prophet.io
+  names:
+    kind: DiagnosticRemediation
+    listKind: DiagnosticRemediationList
+    plural: diagnosticremediations
+    singular: diagnosticremediation
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              target:
+                type: object
+                properties:
+                  namespace:
+                    type: string
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                  labels:
+                    type: object
+              diagnostics:
+                type: object
+                properties:
+                  resources:
+                    type: boolean
+                  environment:
+                    type: boolean
+                  configReferences:
+                    type: boolean
+                  serviceDependencies:
+                    type: array
+                    items:
+                      type: object
+              remediation:
+                type: object
+                properties:
+                  fixResources:
+                    type: boolean
+                  fixEnvironment:
+                    type: boolean
+                  defaultResources:
+                    type: object
+                  requiredEnvVars:
+                    type: array
+                    items:
+                      type: object
+              autoFix:
+                type: boolean
+              cooldownSeconds:
+                type: integer
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+              issues:
+                type: array
+                items:
+                  type: object
+              remediations:
+                type: array
+                items:
+                  type: object
+              remediationCount:
+                type: integer
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: diagnostic-remediator-controller-manager
+  namespace: prophet-operators
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: diagnostic-remediator-manager-role
+rules:
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - diagnosticremediations
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - diagnosticremediations/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - diagnosticremediations/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - statefulsets
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: diagnostic-remediator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: diagnostic-remediator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: diagnostic-remediator-controller-manager
+  namespace: prophet-operators
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: diagnostic-remediator-controller-manager
+  namespace: prophet-operators
+  labels:
+    app: diagnostic-remediator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: diagnostic-remediator
+  template:
+    metadata:
+      labels:
+        app: diagnostic-remediator
+    spec:
+      serviceAccountName: diagnostic-remediator-controller-manager
+      containers:
+      - command:
+        - /manager
+        args:
+        - --leader-elect
+        image: ghcr.io/prophet-aiops/prophet-diagnostic-remediator:latest
+        name: manager
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Rancher Extension Test</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .info {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .code {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+    }
+    .success { color: #28a745; font-weight: bold; }
+    .warning { color: #fd7e14; }
+  </style>
+</head>
+<body>
+  <div class="info">
+    <h1>✅ Rancher Extension Bundle</h1>
+    <p>This is a <strong>JavaScript module</strong> that Rancher loads dynamically.</p>
+    
+    <h2>What you're seeing:</h2>
+    <ul>
+      <li>Minified JavaScript code (normal for production builds)</li>
+      <li>UMD format (Universal Module Definition) - works in browsers, Node, AMD</li>
+      <li>All Vue components bundled together</li>
+      <li>Rancher shell components externalized (loaded from Rancher itself)</li>
+    </ul>
+
+    <h2>How it works:</h2>
+    <ol>
+      <li>Rancher loads this .js file via Developer Load</li>
+      <li>Rancher executes the code in its own context</li>
+      <li>The code registers UI components with Rancher's plugin system</li>
+      <li>You see "K8sGPT" appear in Rancher's left sidebar</li>
+      <li>Clicking it shows your list/detail views inside Rancher</li>
+    </ol>
+
+    <h2>This is NOT a standalone web page</h2>
+    <p class="warning">You don't view this file directly. Rancher loads and executes it.</p>
+  </div>
+
+  <div class="info">
+    <h2>To actually use it:</h2>
+    <div class="code">
+1. Open Rancher UI
+2. Go to: ☰ → Local → Extensions
+3. Click: ⋮ → Enable Extension Developer Features
+4. Click: Developer Load
+5. Enter: http://127.0.0.1:4500/k8sgpt-1.0.0/k8sgpt-1.0.0.umd.min.js
+6. Click: Load
+    </div>
+    <p class="success">Then "K8sGPT" will appear in Rancher's sidebar!</p>
+  </div>
+
+  <div class="info">
+    <h2>What's in the bundle:</h2>
+    <ul>
+      <li>✅ Product registration (sidebar item)</li>
+      <li>✅ List view component (ResourceTable)</li>
+      <li>✅ Detail view component (tabs, diagnostics)</li>
+      <li>✅ SeverityBadge component</li>
+      <li>✅ Model class (stateColor, stateDisplay, etc.)</li>
+      <li>✅ CSS styles (scoped)</li>
+    </ul>
+  </div>
+</body>
+</html>
+

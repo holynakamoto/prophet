@@ -1,0 +1,60 @@
+# Tiltfile for Label Enforcer Operator - Fast Local Development
+# Run with: tilt up
+# Access UI at: http://localhost:10350
+
+load('ext://restart_process', 'docker_build_with_restart')
+
+# Build the manager binary locally (fast, no Docker needed for compile)
+local_resource(
+    'compile-manager',
+    cmd='CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/manager cmd/main.go',
+    deps=['./api', './controllers', './cmd', './go.mod', './go.sum'],
+    labels=['build'],
+)
+
+# Docker build with live update support for hot-reloading
+docker_build_with_restart(
+    'ghcr.io/prophet-aiops/prophet-label-enforcer:tilt',
+    '.',
+    dockerfile='Dockerfile',
+    entrypoint='/manager',
+    live_update=[
+        sync('./bin/manager', '/manager'),
+        restart_container(),
+    ],
+    ignore=['./bin/', './.git/', './helm/'],
+)
+
+# Deploy via Helm with live update image
+yaml = helm(
+    './helm/label-enforcer',           # Path to Helm chart
+    name='label-enforcer',             # Release name
+    namespace='default',               # Target namespace
+    values=['./helm/label-enforcer/values.yaml'],
+    set=[
+        'image.repository=ghcr.io/prophet-aiops/prophet-label-enforcer',
+        'image.tag=tilt',
+    ],
+)
+
+k8s_yaml(yaml)
+
+# Group resources in Tilt UI
+k8s_resource('label-enforcer-controller-manager',
+             new_name='label-enforcer-operator',
+             labels=['operator'],
+             port_forwards=['8080:8080', '8081:8081'])
+
+# Apply test CRs when samples change
+local_resource(
+    'apply-test-cr',
+    cmd='kubectl apply -f ./config/samples/ 2>/dev/null || echo "Applied test CRs"',
+    deps=['./config/samples/'],
+    labels=['test'],
+    allow_parallel=True,
+)
+
+print('🚀 Label Enforcer Operator with fast Tilt development!')
+print('📊 UI: http://localhost:10350')
+print('🔧 Make code changes → auto-rebuild → live update!')
+print('📝 Test with: kubectl apply -f config/samples/')

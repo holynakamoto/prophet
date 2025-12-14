@@ -1,0 +1,311 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: diagnosticremediations.aiops.prophet.io
+spec:
+  group: aiops.prophet.io
+  names:
+    kind: DiagnosticRemediation
+    listKind: DiagnosticRemediationList
+    plural: diagnosticremediations
+    singular: diagnosticremediation
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.issues[*]
+      name: Issues
+      type: integer
+    - jsonPath: .status.remediationCount
+      name: Remediations
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: DiagnosticRemediation is the Schema for the diagnosticremediations
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DiagnosticRemediationSpec defines the desired state of DiagnosticRemediation
+            properties:
+              autoFix:
+                description: 'Auto-fix enabled (default: true)'
+                type: boolean
+              cooldownSeconds:
+                description: Cooldown period in seconds before allowing another remediation
+                format: int32
+                type: integer
+              diagnostics:
+                description: Diagnostic checks to perform
+                properties:
+                  configReferences:
+                    description: Check ConfigMaps/Secrets references
+                    type: boolean
+                  customScript:
+                    description: Custom diagnostic script
+                    type: string
+                  environment:
+                    description: Check environment variables
+                    type: boolean
+                  imagePull:
+                    description: Check image pull policy and availability
+                    type: boolean
+                  networkPolicies:
+                    description: Check network policies
+                    type: boolean
+                  persistentVolumes:
+                    description: Check persistent volume claims
+                    type: boolean
+                  podDisruptionBudget:
+                    description: Check pod disruption budget
+                    type: boolean
+                  resources:
+                    description: Check resource limits/requests
+                    type: boolean
+                  serviceDependencies:
+                    description: Check service dependencies
+                    items:
+                      description: ServiceDependency defines a service that must be
+                        available
+                      properties:
+                        name:
+                          description: Service name
+                          type: string
+                        namespace:
+                          description: Service namespace (defaults to target namespace)
+                          type: string
+                        path:
+                          description: HTTP path to check (for HTTP/HTTPS)
+                          type: string
+                        port:
+                          description: Port to check
+                          format: int32
+                          type: integer
+                        protocol:
+                          description: 'Protocol: TCP, HTTP, HTTPS'
+                          type: string
+                      required:
+                      - name
+                      - port
+                      type: object
+                    type: array
+                type: object
+              remediation:
+                description: Remediation actions to take when issues are found
+                properties:
+                  createMissingConfigs:
+                    description: Create missing ConfigMaps/Secrets
+                    type: boolean
+                  defaultImagePullPolicy:
+                    description: Default image pull policy
+                    type: string
+                  defaultResources:
+                    description: Default resource limits to apply
+                    properties:
+                      cpuLimit:
+                        description: CPU limit
+                        type: string
+                      cpuRequest:
+                        description: CPU request
+                        type: string
+                      memoryLimit:
+                        description: Memory limit
+                        type: string
+                      memoryRequest:
+                        description: Memory request
+                        type: string
+                    type: object
+                  fixEnvironment:
+                    description: Fix environment variables (add required env vars)
+                    type: boolean
+                  fixImagePullPolicy:
+                    description: Fix image pull policy
+                    type: boolean
+                  fixResources:
+                    description: Fix resource limits (add defaults if missing)
+                    type: boolean
+                  requiredEnvVars:
+                    description: Required environment variables
+                    items:
+                      description: EnvVarSpec defines an environment variable
+                      properties:
+                        name:
+                          description: Variable name
+                          type: string
+                        value:
+                          description: Variable value (or valueFrom)
+                          type: string
+                        valueFrom:
+                          description: Value from ConfigMap/Secret
+                          properties:
+                            configMapKeyRef:
+                              description: ConfigMap key reference
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                            secretKeyRef:
+                              description: Secret key reference
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                          type: object
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  restartOnConfigChange:
+                    description: Restart pods if configuration changed
+                    type: boolean
+                  scaleUp:
+                    description: Scale up if resources insufficient
+                    type: boolean
+                type: object
+              target:
+                description: Target workload to diagnose and remediate
+                properties:
+                  kind:
+                    description: 'Resource type: Deployment, StatefulSet, DaemonSet'
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Label selector (alternative to name)
+                    type: object
+                  name:
+                    description: Resource name
+                    type: string
+                  namespace:
+                    description: Namespace
+                    type: string
+                required:
+                - kind
+                - name
+                - namespace
+                type: object
+            required:
+            - diagnostics
+            - remediation
+            - target
+            type: object
+          status:
+            description: DiagnosticRemediationStatus defines the observed state of
+              DiagnosticRemediation
+            properties:
+              errorMessage:
+                description: Error message if failed
+                type: string
+              issues:
+                description: Issues found
+                items:
+                  description: DiagnosticIssue represents a found issue
+                  properties:
+                    description:
+                      description: Description
+                      type: string
+                    resource:
+                      description: Affected resource
+                      type: string
+                    severity:
+                      description: 'Severity: Critical, Warning, Info'
+                      type: string
+                    suggestedFix:
+                      description: Suggested fix
+                      type: string
+                    type:
+                      description: 'Issue type: MissingResources, MissingEnvVar, MissingConfig,
+                        ServiceUnavailable, etc.'
+                      type: string
+                  required:
+                  - description
+                  - severity
+                  - type
+                  type: object
+                type: array
+              lastDiagnosed:
+                description: Last diagnostic time
+                format: date-time
+                type: string
+              lastRemediated:
+                description: Last remediation time
+                format: date-time
+                type: string
+              phase:
+                description: 'Phase: Pending, Diagnosing, IssuesFound, Remediating,
+                  Resolved, Failed'
+                type: string
+              remediationCount:
+                description: Remediation count
+                format: int32
+                type: integer
+              remediations:
+                description: Remediations applied
+                items:
+                  description: RemediationAction represents an applied fix
+                  properties:
+                    description:
+                      description: Description
+                      type: string
+                    errorMessage:
+                      description: Error message if failed
+                      type: string
+                    success:
+                      description: Success
+                      type: boolean
+                    timestamp:
+                      description: Timestamp
+                      format: date-time
+                      type: string
+                    type:
+                      description: 'Action type: AddedResources, AddedEnvVar, UpdatedConfig,
+                        ScaledUp, etc.'
+                      type: string
+                  required:
+                  - description
+                  - success
+                  - timestamp
+                  - type
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

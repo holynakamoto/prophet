@@ -1,0 +1,159 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: headlamp-plugin-prophet
+  namespace: headlamp
+  labels:
+    app.kubernetes.io/name: headlamp
+    app.kubernetes.io/part-of: prophet
+data:
+  package.json: |
+    {
+      "name": "prophet",
+      "version": "0.1.0",
+      "description": "Prophet AIOps console plugin for Headlamp",
+      "main": "main.js"
+    }
+  main.js: |
+    (function() {
+      'use strict';
+      
+      // Get pluginLib - Headlamp provides this globally
+      var lib = (typeof pluginLib !== 'undefined') ? pluginLib : 
+                (typeof globalThis !== 'undefined' && globalThis.pluginLib) ? globalThis.pluginLib : 
+                undefined;
+      
+      if (!lib) {
+        console.warn('Prophet plugin: pluginLib not found');
+        return;
+      }
+      
+      var React = lib.React;
+      if (!React) {
+        console.warn('Prophet plugin: React not found');
+        return;
+      }
+      
+      // Simple Prophet page component
+      function ProphetPage() {
+        var Box = lib.MuiMaterial?.Box || 'div';
+        var Typography = lib.MuiMaterial?.Typography || 'div';
+        var Card = lib.MuiMaterial?.Card || 'div';
+        var CardContent = lib.MuiMaterial?.CardContent || 'div';
+        var Button = lib.MuiMaterial?.Button || 'a';
+        
+        function getClusterBasePath() {
+          try {
+            var path = window?.location?.pathname || '';
+            var m = path.match(/^\/c\/([^/]+)/);
+            return m ? ("/c/" + m[1]) : '';
+          } catch (e) {
+            return '';
+          }
+        }
+        
+        var base = getClusterBasePath();
+        if (!base) {
+          return React.createElement('div', { style: { padding: 16 } },
+            React.createElement('p', null, 'Please select a cluster to view Prophet AIOps.')
+          );
+        }
+        
+        var crdLinks = [
+          { title: 'AnomalyActions', href: base + '/customresources/anomalyactions.aiops.prophet.io' },
+          { title: 'AutonomousActions', href: base + '/customresources/autonomousactions.aiops.prophet.io' },
+          { title: 'HealthChecks', href: base + '/customresources/healthchecks.aiops.prophet.io' },
+          { title: 'BudgetGuards', href: base + '/customresources/budgetguards.aiops.prophet.io' },
+          { title: 'CostAlerts', href: base + '/customresources/costalerts.aiops.prophet.io' },
+        ];
+        
+        return React.createElement(Box, { style: { padding: 16, maxWidth: 1200 } },
+          React.createElement(Typography, { variant: 'h4', style: { marginBottom: 8 } }, 'Prophet AIOps Console'),
+          React.createElement(Typography, { variant: 'body1', color: 'text.secondary', style: { marginBottom: 24 } },
+            'Self-healing and AIOps capabilities for Kubernetes.'
+          ),
+          React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '16px' } },
+            crdLinks.map(function(link, idx) {
+              return React.createElement(Card, { key: idx, variant: 'outlined', style: { flex: '1 1 300px' } },
+                React.createElement(CardContent, null,
+                  React.createElement(Typography, { variant: 'h6', style: { marginBottom: 8 } }, link.title),
+                  React.createElement(Button, { variant: 'contained', href: link.href, style: { textDecoration: 'none' } }, 'Open')
+                )
+              );
+            })
+          )
+        );
+      }
+      
+      // K8sGPT page
+      function K8sGPTPage() {
+        var Box = lib.MuiMaterial?.Box || 'div';
+        var Typography = lib.MuiMaterial?.Typography || 'div';
+        var Card = lib.MuiMaterial?.Card || 'div';
+        var CardContent = lib.MuiMaterial?.CardContent || 'div';
+        var Button = lib.MuiMaterial?.Button || 'a';
+        
+        function getClusterBasePath() {
+          try {
+            var path = window?.location?.pathname || '';
+            var m = path.match(/^\/c\/([^/]+)/);
+            return m ? ("/c/" + m[1]) : '';
+          } catch (e) {
+            return '';
+          }
+        }
+        
+        var base = getClusterBasePath();
+        if (!base) {
+          return React.createElement('div', { style: { padding: 16 } },
+            React.createElement('p', null, 'Please select a cluster.')
+          );
+        }
+        
+        return React.createElement(Box, { style: { padding: 16, maxWidth: 1200 } },
+          React.createElement(Typography, { variant: 'h4', style: { marginBottom: 8 } }, 'K8sGPT AI Diagnostics'),
+          React.createElement(Card, { variant: 'outlined', style: { marginTop: 24 } },
+            React.createElement(CardContent, null,
+              React.createElement(Typography, { variant: 'h6', style: { marginBottom: 16 } }, 'K8sGPT Analysis'),
+              React.createElement(Typography, { variant: 'body2', style: { marginBottom: 16 } },
+                'To view K8sGPT output, open an AnomalyAction and check the .status.k8sgptAnalysis field.'
+              ),
+              React.createElement(Button, {
+                variant: 'contained',
+                href: base + '/customresources/anomalyactions.aiops.prophet.io',
+                style: { textDecoration: 'none' }
+              }, 'View AnomalyActions')
+            )
+          )
+        );
+      }
+      
+      // Register routes and sidebar
+      try {
+        if (lib.registerRoute) {
+          lib.registerRoute({
+            path: '/prophet',
+            exact: true,
+            component: ProphetPage
+          });
+          lib.registerRoute({
+            path: '/prophet/k8sgpt',
+            exact: true,
+            component: K8sGPTPage
+          });
+        }
+        
+        if (lib.registerSidebarItem) {
+          lib.registerSidebarItem({
+            parent: null,
+            name: 'prophet',
+            label: 'Prophet AIOps',
+            url: '/prophet',
+            icon: 'mdi:robot'
+          });
+        }
+      } catch (e) {
+        console.error('Prophet plugin registration error:', e);
+      }
+    })();
+

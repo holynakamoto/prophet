@@ -1,135 +1,179 @@
 # Prophet Operators
 
-This directory contains custom Golang Kubernetes operators built with Kubebuilder.
+Custom Kubernetes operators that power Prophet's self-healing and AIOps capabilities.
 
-## Operators
+## Overview
 
-- **anomaly-remediator**: Detects anomalies and performs automated remediation
-- **predictive-scaler**: Uses Grafana ML forecasts to proactively scale Karpenter NodePools
-- **slo-enforcer**: Monitors SLOs and enforces policies when violations occur
-- **autonomous-agent**: LLM-powered autonomous remediation with MCP server (v5)
+| Operator | CRD | Purpose | Status |
+|----------|-----|---------|--------|
+| [health-check](./health-check/) | `HealthCheck` | Multi-probe health monitoring | ✅ Production |
+| [budget-guard](./budget-guard/) | `BudgetGuard` | Cost budget enforcement | ✅ Production |
+| [cost-alert](./cost-alert/) | `CostAlert` | Cost anomaly alerting | ✅ Production |
+| [diagnostic-remediator](./diagnostic-remediator/) | `DiagnosticRemediation` | Application-specific remediation | ✅ Production |
+| [label-enforcer](./label-enforcer/) | `LabelEnforcer` | Enforce required labels/annotations | ✅ Production |
 
-## Setup
+## Quick Start
 
 ### Prerequisites
 
-- Go 1.21 or later
-- kubebuilder (optional, for code generation)
-- Access to a Kubernetes cluster (for testing)
+- Go 1.22+
+- Docker
+- kubectl configured to a cluster
+- (Optional) Tilt for live development
 
-### Initialize Dependencies
-
-Run the setup script to download all Go module dependencies:
-
-```bash
-./setup-go-modules.sh
-```
-
-Or manually for each operator:
+### Run an Operator Locally
 
 ```bash
-cd anomaly-remediator
-go mod tidy
-cd ../predictive-scaler
-go mod tidy
-cd ../slo-enforcer
-go mod tidy
-cd ../autonomous-agent
-go mod tidy
-```
+cd operators/anomaly-remediator
 
-### Build
+# Install dependencies and generate code
+make generate manifests
 
-Build an operator:
-
-```bash
-cd anomaly-remediator
-make build
-# or
-go build -o bin/manager cmd/main.go
-```
-
-### Run Locally
-
-```bash
-# Install CRDs
-make install
-
-# Run controller (requires kubeconfig)
+# Run against current kubeconfig context
 make run
 ```
 
-### Docker Build
+### Run All Operators with Tilt
 
 ```bash
-make docker-build IMG=ghcr.io/prophet-aiops/prophet-<operator-name>:latest
-make docker-push IMG=ghcr.io/prophet-aiops/prophet-<operator-name>:latest
+cd operators
+tilt up
 ```
 
-## Development
+This starts all operators with live reload on code changes.
 
-### Generate Code
+### Build and Push Images
 
 ```bash
-# Generate CRDs and RBAC
-make manifests
-
-# Generate DeepCopy methods
-make generate
+cd operators/anomaly-remediator
+make docker-build docker-push IMG=your-registry/anomaly-remediator:latest
 ```
 
-### Testing
+## Development Workflow
+
+### 1. Modify CRD Types
+
+Edit `api/v1alpha1/*_types.go`, then regenerate:
 
 ```bash
-# Run unit tests
+make generate manifests
+```
+
+### 2. Run Tests
+
+```bash
 make test
-
-# Run with coverage
-go test ./... -coverprofile cover.out
 ```
 
-## Local CI
-
-Run the same CI checks locally that run in GitHub Actions:
+### 3. Local CI (Lint + Test + Validate)
 
 ```bash
-# Full CI pipeline (mirrors GitHub Actions)
 make local-ci
-
-# Full CI + image build & security scan
-make local-ci-full
-
-# Quick check (lint + tests, ~10 seconds)
-make quick-check
-
-# Individual checks
-make lint          # Static analysis with golangci-lint
-make test          # Unit tests
-make validate-crds # Validate CRDs with kubeconform + kube-linter
-make build-image   # Build Docker image
-make scan-image    # Scan image with Trivy
 ```
 
-See [LOCAL-CI.md](./LOCAL-CI.md) for detailed setup instructions.
-See [ENHANCED-CI.md](./ENHANCED-CI.md) for image building & scanning.
-See [TILT-SETUP.md](./TILT-SETUP.md) for live development with Tilt.
+### 4. Build & Package for Release
 
-## Linting
-
-The linter may show errors about missing packages until `go mod tidy` is run. This is expected - the dependencies need to be downloaded first.
-
-After running `go mod tidy`, the lint errors should resolve.
-
-Run linting with:
 ```bash
-make lint  # Uses golangci-lint with .golangci.yml config
+# Build Docker image
+make docker-build docker-push IMG=ghcr.io/prophet-aiops/prophet-label-enforcer:v1.0.0
+
+# Lint and package Helm chart
+make helm-lint
+make helm-package
+
+# Test chart installation
+make helm-template
+make helm-install  # In test environment
 ```
 
 ## Deployment
 
-See the main README.md for deployment instructions. Operators are deployed via:
+Operators can be deployed in multiple ways:
+
+### Option 1: Helm Charts (Recommended)
+
+Each operator includes a production-ready Helm chart:
 
 ```bash
-kubectl apply -f ../clusters/common/aiops/operators/<operator-name>.yaml
+# Install via Helm
+helm install prophet-label-enforcer operators/label-enforcer/helm/label-enforcer
+helm install prophet-health-check operators/health-check/helm/health-check
+
+# Customize with values
+helm install prophet-label-enforcer operators/label-enforcer/helm/label-enforcer \
+  --set image.tag=v1.0.0 \
+  --set watchNamespace=default
 ```
 
+### Option 2: GitOps with ArgoCD/Flux
+
+Use the provided overlays in `clusters/common/aiops/operators/` or point your GitOps tool to the Helm charts.
+
+### Option 3: Direct Manifests
+
+Apply the generated manifests directly:
+
+```bash
+kubectl apply -f clusters/common/aiops/operators/health-check.yaml
+```
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Prophet Control Plane                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │ Anomaly      │  │ Predictive   │  │ SLO          │           │
+│  │ Remediator   │  │ Scaler       │  │ Enforcer     │           │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘           │
+│         │                 │                 │                    │
+│         ▼                 ▼                 ▼                    │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                   Kubernetes API Server                   │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│         │                 │                 │                    │
+│         ▼                 ▼                 ▼                    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │ Prometheus   │  │ Grafana ML   │  │ K8sGPT       │           │
+│  │ Metrics      │  │ Forecasts    │  │ Diagnostics  │           │
+│  └──────────────┘  └──────────────┘  └──────────────┘           │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## API Group
+
+All Prophet CRDs use the `aiops.prophet.io` API group:
+
+```yaml
+apiVersion: aiops.prophet.io/v1alpha1
+kind: AnomalyAction
+```
+
+## Metrics
+
+Each operator exposes Prometheus metrics on `:8080/metrics`. Available metrics vary by operator.
+
+## Troubleshooting
+
+### View Operator Logs
+
+```bash
+kubectl logs -n prophet-operators -l control-plane=controller-manager -f
+```
+
+### Check CRD Status
+
+```bash
+kubectl get healthchecks,budgetguards,costalerts,diagnosticremediations,labelenforcers -A
+```
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| CRD not found | `make manifests && kubectl apply -f config/crd/bases/` |
+| RBAC denied | Check ClusterRole/ClusterRoleBinding in operator manifest |
+| Operator not reconciling | Check operator logs, verify webhook connectivity |

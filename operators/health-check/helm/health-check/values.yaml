@@ -1,0 +1,42 @@
+# Image configuration
+image:
+  repository: ghcr.io/prophet-aiops/prophet-health-check
+  tag: "tilt"  # Use 'tilt' for development, 'latest' for production
+  pullPolicy: IfNotPresent
+
+# Namespace to watch for resources (empty means all namespaces)
+watchNamespace: ""
+
+# Feature flags
+metrics:
+  enabled: true
+
+webhooks:
+  enabled: false
+
+# Controller configuration
+controllerManager:
+  manager:
+    args:
+    - --leader-elect
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+  nodeSelector: {}
+  replicas: 1
+  tolerations: []
+  topologySpreadConstraints: []
+
+# Kubernetes cluster domain
+kubernetesClusterDomain: cluster.local
+
+# Service account configuration
+serviceAccount:
+  annotations: {}
+  automount: true
+  create: true
+  name: ""

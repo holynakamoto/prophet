@@ -1,0 +1,39 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - costalerts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - costalerts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - aiops.prophet.io
+  resources:
+  - costalerts/status
+  verbs:
+  - get
+  - patch
+  - update

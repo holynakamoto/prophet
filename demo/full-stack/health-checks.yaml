@@ -1,0 +1,102 @@
+---
+apiVersion: aiops.prophet.io/v1alpha1
+kind: HealthCheck
+metadata:
+  name: database-health-check
+  namespace: default
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: postgres-db
+    namespace: default
+  probes:
+  - name: postgres-tcp
+    type: tcp
+    tcpSocket:
+      port: 5432
+  failureThreshold: 3
+  periodSeconds: 15
+  initialDelaySeconds: 30
+  timeoutSeconds: 5
+
+---
+apiVersion: aiops.prophet.io/v1alpha1
+kind: HealthCheck
+metadata:
+  name: backend-health-check
+  namespace: default
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend-api
+    namespace: default
+  probes:
+  - name: backend-api-health
+    type: http
+    httpGet:
+      path: /api/health
+      port: 80
+      scheme: HTTP
+  failureThreshold: 3
+  periodSeconds: 10
+  initialDelaySeconds: 10
+  timeoutSeconds: 5
+  remediation:
+    action: restart
+    cooldownSeconds: 300
+
+---
+apiVersion: aiops.prophet.io/v1alpha1
+kind: HealthCheck
+metadata:
+  name: frontend-health-check
+  namespace: default
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend-app
+    namespace: default
+  probes:
+  - name: frontend-http
+    type: http
+    httpGet:
+      path: /
+      port: 80
+      scheme: HTTP
+  failureThreshold: 3
+  periodSeconds: 10
+  initialDelaySeconds: 10
+  timeoutSeconds: 5
+  remediation:
+    action: restart
+    cooldownSeconds: 300
+
+---
+apiVersion: aiops.prophet.io/v1alpha1
+kind: HealthCheck
+metadata:
+  name: nginx-health-check
+  namespace: default
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-proxy
+    namespace: default
+  probes:
+  - name: nginx-health
+    type: http
+    httpGet:
+      path: /health
+      port: 80
+      scheme: HTTP
+  failureThreshold: 3
+  periodSeconds: 10
+  initialDelaySeconds: 10
+  timeoutSeconds: 5
+  remediation:
+    action: restart
+    cooldownSeconds: 300
